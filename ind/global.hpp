@@ -10,6 +10,7 @@
 #include <utility>
 #include <cmath>
 #include <unordered_map>
+#include <set>
 
 struct Node;
 struct Edge;
@@ -53,9 +54,9 @@ struct Edge {
     }
 };
 
-using Graph = std::pair<std::vector<Node *>, std::vector<Edge *>>;
-using VPath = std::vector<Node *>;
-using EPath = std::vector<Edge *>;
+using Graph = std::pair<std::set<const Node *>, std::set<const Edge *>>;
+using VPath = std::vector<const Node *>;
+using EPath = std::vector<const Edge *>;
 
 /**
  * @brief 标签结构体

@@ -57,6 +57,7 @@ void DataManager::initCellData(const Graph& graph)
         rowNums=1;
         cellWidth=1;
         cellHeight=1;
+        return;
     }
     //计算网格大小
     //处理错误情况
@@ -64,12 +65,14 @@ void DataManager::initCellData(const Graph& graph)
     {
         leftBound-=0.5;
         rightBound+=0.5;
+        colNums=1;
     }
     cellWidth=(rightBound-leftBound)/colNums;
     if(bottomBound == topBound)
     {
         bottomBound-=0.5;
         topBound+=0.5;
+        rowNums=1;
     }
     cellHeight=(topBound-bottomBound)/rowNums;
     

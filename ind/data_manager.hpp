@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 #include <queue>
+#include <iostream>
 
 struct pairHash {
     std::size_t operator() (const std::pair<int, int> &pair) const {
@@ -29,6 +30,28 @@ public:
     Graph GraphqueryDataInViewport(
         int left, int right, int top, int bottom, int level
     );
+    #ifdef DATA_MANAGER_TEST
+    //测试函数所需公有函数
+    void printCellBucket() const
+    {
+        for(const auto& cell:cellBucket)
+        {
+            std::cout<<"Cell ("<<cell.first.first<<","<<cell.first.second<<"):"<<std::endl;
+            for(const auto& node:cell.second)
+            {
+                std::cout<<"  Node "<<node->name<<" at ("<<node->x<<","<<node->y<<")"<<std::endl;
+            }
+        }
+    }
+    double getCellWidth() const { return cellWidth; }
+    double getCellHeight() const { return cellHeight; }
+    double getLeftBound() const { return leftBound; }
+    double getRightBound() const { return rightBound; }
+    double getTopBound() const { return topBound; }
+    double getBottomBound() const { return bottomBound; }
+    int getColNums() const { return colNums; }
+    int getRowNums() const { return rowNums; }
+    #endif
 
 private:
     //网格大小

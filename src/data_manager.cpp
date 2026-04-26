@@ -85,8 +85,8 @@ void DataManager::initHash(const Graph& graph)
         {
             continue;
         }
-        int col=(int)((node->x-leftBound)/cellWidth);
-        int row=(int)((node->y-bottomBound)/cellHeight);
+        int col=(int)std::floor((node->x-leftBound)/cellWidth);
+        int row=(int)std::floor((node->y-bottomBound)/cellHeight);
         col=std::clamp(col,0,colNums-1);//防止越界
         row=std::clamp(row,0,rowNums-1);
         cellBucket[{col,row}].push_back(node);
@@ -96,4 +96,40 @@ void DataManager::initHash(const Graph& graph)
 DataManager::~DataManager()
 {
     cellBucket.clear();
+}
+
+std::set<const Node*> DataManager::DataManager::hashSearch(int left,int right,int top,int bottom,int level)
+{
+    std::set<const Node*> result;
+    int xmin=std::min(left,right);
+    int xmax=std::max(left,right);
+    int ymin=std::min(bottom,top);
+    int ymax=std::max(bottom,top);
+    //可能有负数，不能int直接截断
+    int leftCol=(int) std::floor((xmin-leftBound)/cellWidth);
+    int rightCol=(int) std::floor((xmax-leftBound)/cellWidth);
+    int topRow=(int) std::floor((ymax-bottomBound)/cellHeight);
+    int bottomRow=(int) std::floor((ymin-bottomBound)/cellHeight);
+    leftCol=std::clamp(leftCol,0,colNums-1);
+    rightCol=std::clamp(rightCol,0,colNums-1);
+    topRow=std::clamp(topRow,0,rowNums-1);
+    bottomRow=std::clamp(bottomRow,0,rowNums-1);
+    for(int col=leftCol;col<=rightCol;col++)
+    {
+        for(int row=bottomRow;row<=topRow;row++)
+        {
+            auto it=cellBucket.find({col,row});
+            if(it!=cellBucket.end())
+            {
+                for(const auto& node:it->second)
+                {
+                    if(node->x>=xmin && node->x<=xmax && node->y>=ymin && node->y<=ymax)
+                    {
+                        result.insert(node);
+                    }
+                }
+            }
+        }
+    }
+    return result;
 }

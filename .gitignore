@@ -1,6 +1,7 @@
 .vscode
 src/main.exe
 src/test.exe
+src/test/test.exe
 plan.md
 requirment.txt
 build

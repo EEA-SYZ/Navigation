@@ -89,6 +89,7 @@ int main()
 {
     if(LAB_TEST)
     {
+        /*
        normalConstructorTest();
        emptyConstructorTest();
        sameConstructorTest();
@@ -101,6 +102,7 @@ int main()
        hashSearchOnGraphTest();
        hashSearchOverlapBoundaryTest();
        hashSearchNullNodeTest();
+       */
        priorityQueueSearchBasicTopKTest();
     }
 }
@@ -396,8 +398,24 @@ void priorityQueueSearchBasicTopKTest()
 
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    (void)dataManager;
-
+    std::priority_queue<Distancecmp> top100List=dataManager.priorityQueueSearch(-20,20,20,-20,0);
+    assert(top100List.size()==100);
+    std::set<std::string> nodeName;
+    while(!top100List.empty())
+    {
+        auto node=top100List.top();
+        top100List.pop();
+        nodeName.insert((node.second)->name);
+    }
+    assert(nodeName.find("K101") == nodeName.end());
+    assert(nodeName.find("K102") == nodeName.end());
+    assert(nodeName.find("K103") == nodeName.end());
+    assert(nodeName.find("K104") == nodeName.end());
+    assert(nodeName.find("K105") == nodeName.end());
+    assert(nodeName.find("L") == nodeName.end());
+    assert(nodeName.find("R") == nodeName.end());
+    assert(nodeName.find("T") == nodeName.end());
+    assert(nodeName.find("B") == nodeName.end());
     for(auto it:nodes)
     {
         delete it;

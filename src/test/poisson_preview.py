@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview Poisson disk samples for the navigation data generator."""
+"""Preview raw planar graphs for the navigation data generator."""
 
 from __future__ import annotations
 
@@ -20,6 +20,22 @@ class Point:
     y: float
     address: tuple[int, ...] = ()
     level: int = 0
+
+
+@dataclass(frozen=True)
+class Edge:
+    name: str
+    from_name: str
+    to_name: str
+    length: float = 0.0
+    volume: int = 0
+    level: int = 0
+
+
+@dataclass(frozen=True)
+class GraphData:
+    points: list[Point]
+    edges: list[Edge]
 
 
 def poisson_disk_sample(
@@ -129,19 +145,43 @@ def nearest_distance(points: Iterable[Point]) -> float | None:
     return best
 
 
-def write_csv(path: Path, points: list[Point]) -> None:
+def write_csv(path: Path, graph: GraphData) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["name", "x", "y", "address", "level"])
-        for point in points:
+        writer.writerow(
+            ["kind", "name", "x", "y", "address", "level", "from", "to", "length", "volume", "edge_level"]
+        )
+        for point in graph.points:
             writer.writerow(
                 [
+                    "node",
                     point.name,
                     point.x,
                     point.y,
                     ";".join(str(item) for item in point.address),
                     point.level,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
+        for edge in graph.edges:
+            writer.writerow(
+                [
+                    "edge",
+                    edge.name,
+                    "",
+                    "",
+                    "",
+                    "",
+                    edge.from_name,
+                    edge.to_name,
+                    edge.length,
+                    edge.volume,
+                    edge.level,
                 ]
             )
 
@@ -163,19 +203,37 @@ def infer_level(address: tuple[int, ...]) -> int:
     return level
 
 
-def read_csv_rows(handle: TextIO) -> list[Point]:
+def read_csv_rows(handle: TextIO) -> GraphData:
     points: list[Point] = []
+    edges: list[Edge] = []
     reader = csv.DictReader(handle)
     for idx, row in enumerate(reader):
+        kind = (row.get("kind") or "node").strip().lower()
+        if kind == "edge":
+            edge_level = row.get("edge_level") or row.get("level") or "0"
+            volume = row.get("volume") or "0"
+            length = row.get("length") or "0"
+            edges.append(
+                Edge(
+                    row.get("name") or f"E{len(edges)}",
+                    row.get("from") or "",
+                    row.get("to") or "",
+                    float(length),
+                    int(volume),
+                    int(edge_level),
+                )
+            )
+            continue
+
         name = row.get("name") or f"N{idx}"
         address = parse_address(row.get("address"))
         level_text = row.get("level")
         level = int(level_text) if level_text not in (None, "") else infer_level(address)
         points.append(Point(name, float(row["x"]), float(row["y"]), address, level))
-    return points
+    return GraphData(points, edges)
 
 
-def read_csv(path: Path) -> list[Point]:
+def read_csv(path: Path) -> GraphData:
     with path.open("r", newline="", encoding="utf-8") as handle:
         return read_csv_rows(handle)
 
@@ -197,6 +255,7 @@ def bounds_from_points(points: list[Point]) -> tuple[float, float, float, float]
 
 def plot_points(
     points: list[Point],
+    edges: list[Edge],
     left: float,
     right: float,
     bottom: float,
@@ -209,8 +268,9 @@ def plot_points(
 ) -> None:
     import matplotlib.pyplot as plt
     from matplotlib.patches import Circle
+    from matplotlib.collections import LineCollection
 
-    fig, ax = plt.subplots(figsize=(max(30, 0), max(30, 0)))
+    fig, ax = plt.subplots(figsize=(30, 30))
     palette = [
         "#2563eb",
         "#dc2626",
@@ -223,8 +283,44 @@ def plot_points(
         "#7c3aed",
         "#0f766e",
     ]
+    edge_palette = [
+        "#94a3b8",
+        "#fca5a5",
+        "#86efac",
+        "#c4b5fd",
+        "#fdba74",
+        "#67e8f9",
+        "#fda4af",
+        "#bef264",
+        "#ddd6fe",
+        "#99f6e4",
+    ]
     levels = sorted({point.level for point in points})
     has_hierarchy = len(levels) > 1 or any(point.level > 0 or point.address for point in points)
+    points_by_name = {point.name: point for point in points}
+
+    if edges:
+        for level in sorted({edge.level for edge in edges}):
+            segments = []
+            for edge in edges:
+                if edge.level != level:
+                    continue
+                start = points_by_name.get(edge.from_name)
+                end = points_by_name.get(edge.to_name)
+                if start is None or end is None:
+                    continue
+                segments.append([(start.x, start.y), (end.x, end.y)])
+            if not segments:
+                continue
+            ax.add_collection(
+                LineCollection(
+                    segments,
+                    colors=edge_palette[level % len(edge_palette)],
+                    linewidths=0.60 + 0.25 * min(level, 4),
+                    alpha=0.20 + 0.20 * min(level, 3),
+                    zorder=1,
+                )
+            )
 
     if has_hierarchy:
         for level in levels:
@@ -241,14 +337,23 @@ def plot_points(
                 color=palette[level % len(palette)],
                 edgecolors="#0f172a",
                 linewidths=0.35,
-                label=f"level {level}",
+                label=f"nodes L{level}",
                 alpha=0.88,
+                zorder=3 + level,
             )
         ax.legend(loc="upper right", frameon=True)
     else:
         xs = [point.x for point in points]
         ys = [point.y for point in points]
-        ax.scatter(xs, ys, s=18, color="#2563eb", edgecolors="#0f172a", linewidths=0.35)
+        ax.scatter(
+            xs,
+            ys,
+            s=18,
+            color="#2563eb",
+            edgecolors="#0f172a",
+            linewidths=0.35,
+            zorder=3,
+        )
 
     if show_radius:
         for point in points:
@@ -283,7 +388,7 @@ def plot_points(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate and preview a simple Poisson disk sample."
+        description="Generate and preview a raw planar navigation graph."
     )
     parser.add_argument("-n", "--count", type=int, default=200, help="target point count")
     parser.add_argument("--left", type=float, default=0.0)
@@ -297,11 +402,11 @@ def parse_args() -> argparse.Namespace:
         "--input-csv",
         type=Path,
         default=None,
-        help="plot existing points from a CSV with x and y columns",
+        help="plot an existing graph CSV with node and edge rows",
     )
-    parser.add_argument("--stdin", action="store_true", help="read point CSV from stdin")
+    parser.add_argument("--stdin", action="store_true", help="read graph CSV from stdin")
     parser.add_argument("--save", type=Path, default=None, help="save preview image")
-    parser.add_argument("--csv", type=Path, default=None, help="write generated points as CSV")
+    parser.add_argument("--csv", type=Path, default=None, help="write generated graph CSV")
     parser.add_argument("--no-show", action="store_true", help="do not open a plot window")
     parser.add_argument(
         "--show-radius",
@@ -314,10 +419,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.stdin:
-        points = read_csv_rows(sys.stdin)
+        graph = read_csv_rows(sys.stdin)
         radius = args.radius or 0.0
     elif args.input_csv:
-        points = read_csv(args.input_csv)
+        graph = read_csv(args.input_csv)
         radius = args.radius or 0.0
     else:
         points, radius = poisson_disk_sample(
@@ -330,11 +435,14 @@ def main() -> None:
             args.attempts,
             args.seed,
         )
+        graph = GraphData(points, [])
+    points = graph.points
+    edges = graph.edges
     closest = nearest_distance(points)
     if args.stdin:
-        print(f"loaded from stdin: {len(points)}")
+        print(f"loaded from stdin: {len(points)} nodes, {len(edges)} edges")
     elif args.input_csv:
-        print(f"loaded: {len(points)}")
+        print(f"loaded: {len(points)} nodes, {len(edges)} edges")
     else:
         print(f"generated: {len(points)} / {args.count}")
         print(f"radius: {radius:.4f}")
@@ -342,10 +450,18 @@ def main() -> None:
         print(f"nearest distance: {closest:.4f}")
 
     if args.csv:
-        write_csv(args.csv, points)
+        write_csv(args.csv, graph)
         print(f"csv: {args.csv}")
 
-    title = f"Poisson disk sample: {len(points)} points, r={radius:.2f}"
+    level_count = 0
+    if points:
+        level_count = max((len(point.address) for point in points), default=0)
+        if level_count == 0:
+            level_count = max((point.level for point in points), default=0) + 1
+    if edges:
+        title = f"Raw planar graph: {len(points)} nodes, {len(edges)} edges, {level_count} levels"
+    else:
+        title = f"Poisson disk sample: {len(points)} points, r={radius:.2f}"
     if args.stdin or args.input_csv:
         left, right, bottom, top = bounds_from_points(points)
     else:
@@ -356,6 +472,7 @@ def main() -> None:
 
     plot_points(
         points,
+        edges,
         left,
         right,
         bottom,

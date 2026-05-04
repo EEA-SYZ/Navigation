@@ -120,6 +120,23 @@ int representativeLevel(const Node *node)
     return level;
 }
 
+int commonAddressLevel(const Node *lhs, const Node *rhs)
+{
+    if (lhs == nullptr || rhs == nullptr) {
+        return 0;
+    }
+
+    int limit = static_cast<int>(std::min(lhs->address.size(), rhs->address.size()));
+    int level = 0;
+    for (int i = 1; i < limit; ++i) {
+        if (lhs->address[i] >= 0 && lhs->address[i] == rhs->address[i]) {
+            level = i;
+            break;
+        }
+    }
+    return level;
+}
+
 double nearestDistance(const std::vector<const Node *> &nodes)
 {
     if (nodes.size() < 2) {
@@ -135,6 +152,62 @@ double nearestDistance(const std::vector<const Node *> &nodes)
         }
     }
     return best;
+}
+
+double cross(const Node *a, const Node *b, const Node *c)
+{
+    return (b->x - a->x) * (c->y - a->y) - (b->y - a->y) * (c->x - a->x);
+}
+
+bool onSegment(const Node *point, const Node *a, const Node *b)
+{
+    constexpr double eps = 1e-9;
+    if (std::abs(cross(a, b, point)) > eps) {
+        return false;
+    }
+
+    return point->x >= std::min(a->x, b->x) - eps &&
+           point->x <= std::max(a->x, b->x) + eps &&
+           point->y >= std::min(a->y, b->y) - eps &&
+           point->y <= std::max(a->y, b->y) + eps;
+}
+
+bool intersects(const Edge *lhs, const Edge *rhs)
+{
+    if (lhs->from == rhs->from || lhs->from == rhs->to ||
+        lhs->to == rhs->from || lhs->to == rhs->to) {
+        return false;
+    }
+
+    constexpr double eps = 1e-9;
+    double abC = cross(lhs->from, lhs->to, rhs->from);
+    double abD = cross(lhs->from, lhs->to, rhs->to);
+    double cdA = cross(rhs->from, rhs->to, lhs->from);
+    double cdB = cross(rhs->from, rhs->to, lhs->to);
+
+    if (((abC > eps && abD < -eps) || (abC < -eps && abD > eps)) &&
+        ((cdA > eps && cdB < -eps) || (cdA < -eps && cdB > eps))) {
+        return true;
+    }
+
+    return onSegment(rhs->from, lhs->from, lhs->to) ||
+           onSegment(rhs->to, lhs->from, lhs->to) ||
+           onSegment(lhs->from, rhs->from, rhs->to) ||
+           onSegment(lhs->to, rhs->from, rhs->to);
+}
+
+int countCrossingEdges(const Graph &graph)
+{
+    std::vector<const Edge *> edges(graph.second.begin(), graph.second.end());
+    int crossings = 0;
+    for (std::size_t i = 0; i < edges.size(); ++i) {
+        for (std::size_t j = i + 1; j < edges.size(); ++j) {
+            if (intersects(edges[i], edges[j])) {
+                ++crossings;
+            }
+        }
+    }
+    return crossings;
 }
 
 int main(int argc, char **argv)
@@ -162,20 +235,42 @@ int main(int argc, char **argv)
 
         std::cerr << "generated nodes: " << nodes.size() << " / " << cfg.count << '\n';
         std::cerr << "generated edges: " << graph.second.size() << " / " << cfg.edgeCount << '\n';
+        if (!graph.second.empty() && graph.second.size() <= 5000) {
+            std::cerr << "edge crossings: " << countCrossingEdges(graph) << '\n';
+        } else if (!graph.second.empty()) {
+            std::cerr << "edge crossings: skipped for " << graph.second.size()
+                      << " edges\n";
+        }
         std::cerr << "levels: " << cfg.levelCount << '\n';
         if (nodes.size() >= 2) {
             std::cerr << "nearest distance: " << std::fixed << std::setprecision(4)
                       << nearestDistance(nodes) << '\n';
         }
 
-        std::cout << "name,x,y,address,level\n";
+        std::cout << "kind,name,x,y,address,level,from,to,length,volume,edge_level\n";
         std::cout << std::fixed << std::setprecision(8);
         for (const Node *node : nodes) {
-            std::cout << node->name << ','
+            std::cout << "node,"
+                      << node->name << ','
                       << node->x << ','
                       << node->y << ','
                       << addressToString(node->address) << ','
-                      << representativeLevel(node) << '\n';
+                      << representativeLevel(node) << ",,,,,\n";
+        }
+
+        std::vector<const Edge *> edges(graph.second.begin(), graph.second.end());
+        std::sort(edges.begin(), edges.end(), [](const Edge *lhs, const Edge *rhs) {
+            return lhs->name < rhs->name;
+        });
+
+        for (const Edge *edge : edges) {
+            std::cout << "edge,"
+                      << edge->name << ",,,,,"
+                      << edge->from->name << ','
+                      << edge->to->name << ','
+                      << edge->length << ','
+                      << edge->volume << ','
+                      << commonAddressLevel(edge->from, edge->to) << '\n';
         }
     } catch (const std::exception &ex) {
         std::cerr << "error: " << ex.what() << '\n';

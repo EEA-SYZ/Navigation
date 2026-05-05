@@ -6,6 +6,8 @@
 #include <vector>
 #include <queue>
 #include <iostream>
+#include <unordered_set>
+using Distancecmp = std::pair<double,const Node*>;
 
 struct pairHash {
     std::size_t operator() (const std::pair<int, int> &pair) const {
@@ -30,6 +32,28 @@ public:
     Graph GraphqueryDataInViewport(
         int left, int right, int top, int bottom, int level
     );
+    /**
+     * @brief 均匀网格哈希拿候选点
+     * @param left 视口的左边界
+     * @param right 视口的右边界
+     * @param top 视口的上边界 
+     * @param bottom 视口的下边界 
+     * @param level 查询的图的层级 
+     * @return std::set<const Node*> 
+     */
+    std::set<const Node*> hashSearch(int left,int right,int top,int bottom,int level);
+
+    /**
+     * @brief 优先队列拿候选点
+     * @param left 视口的左边界
+     * @param right 视口的右边界
+     * @param top 视口的上边界
+     * @param bottom 视口的下边界
+     * @param level 查询的图的层级
+     * @return priority_queue<Distance,const Node*> 
+     */
+    std::priority_queue<Distancecmp> priorityQueueSearch(int left,int right,int top,int bottom,int level);
+
     #ifdef DATA_MANAGER_TEST
     //测试函数所需公有函数
     void printCellBucket() const

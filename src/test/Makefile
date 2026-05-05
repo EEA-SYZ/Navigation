@@ -15,12 +15,15 @@ SMALL_POINT_ARGS := -n 2000 -e 4000 --levels $(LEVELS)
 
 .PHONY: all points points_view points_view_small clean
 
+
 all: points_view
 
 points: $(POINT_BIN)
 
 $(POINT_BIN): $(POINT_SRC) $(DATA_MAKER_SRC) $(DATA_MAKER_HDR)
 	$(CXX) $(CXXFLAGS) -I../../ind $(POINT_SRC) $(DATA_MAKER_SRC) -o $@
+$(POINT_BIN): $(POINT_SRC)
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 points_view: points
 	./$(POINT_BIN) $(POINT_ARGS) | $(PYTHON) poisson_preview.py --stdin --save $(POINT_IMG) --no-show

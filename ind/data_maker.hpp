@@ -1,4 +1,4 @@
-﻿#ifndef __DATA_MAKER_HPP__
+#ifndef __DATA_MAKER_HPP__
 #define __DATA_MAKER_HPP__
 
 /**
@@ -10,6 +10,7 @@
 #include <cmath>
 #include <algorithm>
 #include <vector>
+
 #include "global.hpp"
 
 class DataMaker {
@@ -152,6 +153,7 @@ public:
      * @param n 生成的点数量
      */
     void generateNotes(
+    std::vector<Node> &generateNotes(
         double left, double right, double top, double bottom,
         std::vector<Node*> &nodes,
         int n, double &r, int k = 30
@@ -272,6 +274,7 @@ private:
             }
             return true;
         });
+
     }
 };
 

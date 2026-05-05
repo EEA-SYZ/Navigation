@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Preview raw planar graphs for the navigation data generator."""
+"""Preview Poisson disk samples for the navigation data generator."""
 
 from __future__ import annotations
 
@@ -63,6 +64,7 @@ def poisson_disk_sample(
 
     if radius is None or radius <= 0:
         radius = math.sqrt(width * height * 0.45 / target_count)
+        radius = math.sqrt(width * height * 0.7 / target_count)
 
     rng = random.Random(seed)
     nominal_radius = max(radius, 1e-9)
@@ -82,6 +84,7 @@ def poisson_disk_sample(
         return gx, gy
 
     def add_point(point: Point, point_radius: float) -> None:
+    def add_point(point: Point) -> None:
         gx, gy = grid_xy(point)
         grid[gy * cols + gx].append(len(points))
         points.append(point)
@@ -103,6 +106,17 @@ def poisson_disk_sample(
                     local_radius = min(candidate_radius, point_radii[idx])
                     if dx * dx + dy * dy < local_radius * local_radius:
                         return False
+        radius_sq = radius * radius
+        for yy in range(max(0, gy - 2), min(rows, gy + 3)):
+            for xx in range(max(0, gx - 2), min(cols, gx + 3)):
+                idx = grid[yy * cols + xx]
+                if idx is None:
+                    continue
+                other = points[idx]
+                dx = x - other.x
+                dy = y - other.y
+                if dx * dx + dy * dy < radius_sq:
+                    return False
         return True
 
     failed_attempts = 0
@@ -146,6 +160,7 @@ def nearest_distance(points: Iterable[Point]) -> float | None:
 
 
 def write_csv(path: Path, graph: GraphData) -> None:
+def write_csv(path: Path, points: list[Point]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
@@ -389,6 +404,7 @@ def plot_points(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate and preview a raw planar navigation graph."
+        description="Generate and preview a simple Poisson disk sample."
     )
     parser.add_argument("-n", "--count", type=int, default=200, help="target point count")
     parser.add_argument("--left", type=float, default=0.0)
@@ -403,6 +419,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="plot an existing graph CSV with node and edge rows",
+        help="plot existing points from a CSV with x and y columns",
     )
     parser.add_argument("--stdin", action="store_true", help="read graph CSV from stdin")
     parser.add_argument("--save", type=Path, default=None, help="save preview image")
@@ -423,6 +440,10 @@ def main() -> None:
         radius = args.radius or 0.0
     elif args.input_csv:
         graph = read_csv(args.input_csv)
+        points = read_csv_rows(sys.stdin)
+        radius = args.radius or 0.0
+    elif args.input_csv:
+        points = read_csv(args.input_csv)
         radius = args.radius or 0.0
     else:
         points, radius = poisson_disk_sample(
@@ -453,6 +474,10 @@ def main() -> None:
         write_csv(args.csv, graph)
         print(f"csv: {args.csv}")
 
+        write_csv(args.csv, points)
+        print(f"csv: {args.csv}")
+
+    title = f"Poisson disk sample: {len(points)} points, r={radius:.2f}"
     level_count = 0
     if points:
         level_count = max((len(point.address) for point in points), default=0)

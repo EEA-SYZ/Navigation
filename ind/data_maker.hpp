@@ -1,4 +1,4 @@
-#ifndef __DATA_MAKER_HPP__
+﻿#ifndef __DATA_MAKER_HPP__
 #define __DATA_MAKER_HPP__
 
 /**
@@ -8,6 +8,8 @@
 #include <random>
 #include <chrono>
 #include <cmath>
+#include <algorithm>
+#include <vector>
 #include "global.hpp"
 
 class DataMaker {
@@ -46,6 +48,97 @@ public:
 private:
     Graph graph;
 };
+
+/**
+ * @brief 空间网格，用于按半径快速查询附近节点
+ */
+class NodeSpatialGrid {
+public:
+    /**
+     * @param left, right, bottom, top 网格覆盖的边界范围
+     * @param cell_size 网格单元边长
+     */
+    NodeSpatialGrid(
+        double left, double right, double bottom, double top, double cell_size
+    ) {
+        // 统一边界方向，避免调用方传入反向边界
+        leftBound = std::min(left, right);
+        rightBound = std::max(left, right);
+        bottomBound = std::min(bottom, top);
+        topBound = std::max(bottom, top);
+        cellSize = std::max(cell_size, 1e-9);
+
+        // 初始化网格行列数
+        double width = std::max(rightBound - leftBound, cellSize);
+        double height = std::max(topBound - bottomBound, cellSize);
+        cols = std::max(1, static_cast<int>(std::ceil(width / cellSize)));
+        rows = std::max(1, static_cast<int>(std::ceil(height / cellSize)));
+        buckets.assign(cols * rows, {});
+    }
+
+    /**
+     * @brief 将节点编号加入对应网格
+     */
+    void add(const Node *node, int node_index) {
+        buckets[cellIndex(node->x, node->y)].emplace_back(node_index);
+    }
+
+    /**
+     * @brief 遍历给定半径附近网格中的节点
+     */
+    template <class Visitor>
+    bool visitNearby(double x, double y, double radius, Visitor visitor) const {
+        int cell_x = cellX(x);
+        int cell_y = cellY(y);
+        int range = std::max(1, static_cast<int>(std::ceil(radius / cellSize)));
+
+        // 只访问半径覆盖到的邻近网格
+        for (int i = std::max(0, cell_x - range); i <= std::min(cols - 1, cell_x + range); ++i) {
+            for (int j = std::max(0, cell_y - range); j <= std::min(rows - 1, cell_y + range); ++j) {
+                for (int nodeIndex : buckets[j * cols + i]) {
+                    if (!visitor(nodeIndex)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+private:
+    double leftBound;
+    double rightBound;
+    double bottomBound;
+    double topBound;
+    double cellSize;
+    int cols;
+    int rows;
+    std::vector<std::vector<int>> buckets;
+
+    /**
+     * @brief 计算 x 坐标所在列
+     */
+    int cellX(double x) const {
+        int ret = static_cast<int>((x - leftBound) / cellSize);
+        return std::clamp(ret, 0, cols - 1);
+    }
+
+    /**
+     * @brief 计算 y 坐标所在行
+     */
+    int cellY(double y) const {
+        int ret = static_cast<int>((y - bottomBound) / cellSize);
+        return std::clamp(ret, 0, rows - 1);
+    }
+
+    /**
+     * @brief 计算坐标对应的一维网格下标
+     */
+    int cellIndex(double x, double y) const {
+        return cellY(y) * cols + cellX(x);
+    }
+};
  
 /**
  * @brief 泊松磁盘采样，生成均匀不规则点集
@@ -58,133 +151,127 @@ public:
      * @param k 每个点探测次数
      * @param n 生成的点数量
      */
-    std::vector<Node> &generateNotes(
+    void generateNotes(
         double left, double right, double top, double bottom,
-        int n, double r = 0, int k = 30
+        std::vector<Node*> &nodes,
+        int n, double &r, int k = 30
     ) {
-        double width = std::abs(right - left);
-        double lenth = std::abs(top - bottom);
-        long long area = width * lenth;
-        if (!r) {
-            r = std::sqrt(area * .7 / n); 
+        if (left > right) {
+            std::swap(left, right);
+        }
+        if (bottom > top) {
+            std::swap(bottom, top);
         }
 
-        // 初始化网格
-        double cellSize = r / std::sqrt(2);
-        int cols = width / cellSize;
-        int rows = lenth / cellSize;
-        
-        std::vector<int> grid(cols * rows, -1); // 网格，存储节点编号
-        std::vector<Node*> nodes;
-        std::vector<int> activeList;            // 待选点集
+        double width = right - left;
+        double lenth = top - bottom;
+        if (n <= 0 || width <= 0 || lenth <= 0) {
+            return;
+        }
+
+        double area = width * lenth;
+        if (!r) {
+            r = std::sqrt(area * .45 / n);
+        }
+
+        // 全域候选采样，避免单种子前沿扩展在达到目标数量时留下边缘空洞。
+        double nominalRadius = std::max(r, 1e-9);
+        double relax = 1.0;
+        double minRadius = nominalRadius * 0.72;
+        double maxRadius = nominalRadius * 1.08;
+        double cellSize = minRadius / std::sqrt(2);
+        NodeSpatialGrid grid(left, right, bottom, top, cellSize);
+        std::vector<double> nodeRadii;
+        nodeRadii.reserve(n);
     
         // 随机数生成器
         std::mt19937 rnd(std::chrono::steady_clock::now().time_since_epoch().count());
-        std::uniform_real_distribution<double> disx(top, bottom);
-        std::uniform_real_distribution<double> disy(left, right);
+        std::uniform_real_distribution<double> disx(left, right);
+        std::uniform_real_distribution<double> disy(bottom, top);
+        std::uniform_real_distribution<double> radiusJitter(0.82, 1.12);
 
-        Node* first = createNode("N0", disx(rnd), disy(rnd));
+        int targetCount = n;
+        int failedAttempts = 0;
+        int maxFailedAttempts = std::max(2000, targetCount * std::max(80, k * 4));
+        while (static_cast<int>(nodes.size()) < targetCount) {
+            double x = disx(rnd);
+            double y = disy(rnd);
+            double candidateRadius = nominalRadius * relax * radiusJitter(rnd);
+            double boundaryDistance = std::min({
+                x - left,
+                right - x,
+                y - bottom,
+                top - y
+            });
+            double boundaryBlend = std::clamp(boundaryDistance / nominalRadius, 0.0, 1.0);
+            candidateRadius *= 0.80 + 0.20 * boundaryBlend;
+            candidateRadius = std::clamp(candidateRadius, minRadius * relax, maxRadius * relax);
 
-        addNode(first, nodes, activeList, grid, top, left, cellSize, cols, n);    
-    
-        // 采样循环
-        while (!activeList.empty() && n) {
-            // 从active点集随机选取
-            std::uniform_int_distribution<int> activeIdx(0, activeList.size() - 1);
-            int idx = activeIdx(rnd);
-
-            Node *parent = nodes[activeList[idx]];
-
-            bool find = false;
-
-            // 对选中的参考点作候选取样
-            for (int i = 0; i < k; ++i) {
-                Node *candidate = generateAround(parent, r, rnd);
-
-                if (isValid(
-                    candidate, cellSize, rows, cols,
-                    left, right, top, bottom, r,
-                    grid, nodes
-                )) {
-                    find = true;
-                    candidate->name = "N" + std::to_string(nodes.size());
-                    addNode(candidate, nodes, activeList, grid, left, bottom, cellSize, cols, n);
-                    if (n <= 0) break;
-                }
-                else {
-                    delete candidate;
-                }
+            if (isValid(
+                x, y, left, right, top, bottom,
+                maxRadius * relax, candidateRadius, grid, nodes, nodeRadii
+            )) {
+                addNode(
+                    createNode("N" + std::to_string(nodes.size()), x, y),
+                    candidateRadius, nodes, nodeRadii, grid
+                );
+                failedAttempts = 0;
+                continue;
             }
 
-            if (!find) {
-                activeList.erase(activeList.begin() + idx);
+            ++failedAttempts;
+            if (failedAttempts >= maxFailedAttempts) {
+                relax *= 0.94;
+                minRadius *= 0.94;
+                maxRadius *= 0.94;
+                failedAttempts = 0;
             }
         }
     }
 
 private:
 
-    #define PI 3.14159265358979323846
-
     Node* createNode(std::string &&s, double x, double y) {
         Node* n = new Node();
         n->name = s;
         n->x = x;
         n->y = y;
+
+        return n;
     }
 
     void addNode(
-        Node* n, std::vector<Node*> &nodes, std::vector<int> &active, std::vector<int> &grid, 
-        double minx, double miny, double cellSize, int cols, int &_n
+        Node* n, double radius, std::vector<Node*> &nodes,
+        std::vector<double> &nodeRadii, NodeSpatialGrid &grid
     ) {
-        int x = static_cast<int>((n->x - minx) / cellSize);
-        int y = static_cast<int>((n->y - miny) / cellSize);
-    
-        grid[cols * y + x] = nodes.size();
-        active.emplace_back(nodes.size());
+        int nodeIndex = static_cast<int>(nodes.size());
+        grid.add(n, nodeIndex);
+        nodeRadii.emplace_back(radius);
         nodes.emplace_back(n);
-        _n--;
-    }
-
-    Node *generateAround(Node *p, double r, std::mt19937 &rnd) {
-        // 随机选取候选点的半径与角度
-        std::uniform_real_distribution<double> distRadius(r, 2 * r);
-        std::uniform_real_distribution<double> distAngle(0, 2 * PI);
-
-        double radius = distRadius(rnd);
-        double angle = distAngle(rnd);
-
-        return createNode("", p->x + radius * std::cos(angle), p->y + radius * std::sin(angle));
     }
 
     bool isValid(
-        Node *p, double cellSize, int rows, int cols,
-        double left, double right, double top, double bottom, double r,
-        std::vector<int> &g, std::vector<Node*> &nodes
+        double x, double y,
+        double left, double right, double top, double bottom,
+        double queryRadius, double candidateRadius,
+        NodeSpatialGrid &grid, std::vector<Node*> &nodes,
+        const std::vector<double> &nodeRadii
     ){
-        if (p->x > right || p->x < left || p->y > top || p->y < bottom) {
+        if (x > right || x < left || y > top || y < bottom) {
             return false;
         }
 
-        int y = static_cast<int>((p->y - bottom) / cellSize);
-        int x = static_cast<int>((p->x - left) / cellSize);
-
-        // 检查5*5的领域是否已经有点
-        for (int i = std::max(0, x - 2); i <= std::min(cols - 1, x + 2); ++i) {
-            for (int j = std::max(0, y - 2); j <= std::min(rows - 1, y + 2); ++y) {
-                int gridIdx = j * cols + i;
-
-                if (g[gridIdx] != -1) {
-                    Node *other = nodes[g[gridIdx]];
-                    double dis = (p->x - other->x) * (p->x - other->x) + (p->y - other->y) * (p->y - other->y);
-
-                    if (dis < r * r) {
-                        return false;
-                    }
-                }
+        // 检查候选点附近是否已经有距离过近的点
+        return grid.visitNearby(x, y, queryRadius, [&](int nodeIndex) {
+            Node *other = nodes[nodeIndex];
+            double radius = std::min(candidateRadius, nodeRadii[nodeIndex]);
+            double radiusSquared = radius * radius;
+            double dis = (x - other->x) * (x - other->x) + (y - other->y) * (y - other->y);
+            if (dis < radiusSquared) {
+                return false;
             }
-        }
-        return true;
+            return true;
+        });
     }
 };
 

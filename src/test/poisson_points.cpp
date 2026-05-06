@@ -1,6 +1,5 @@
 #include "data_maker.hpp"
 
-
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -8,8 +7,6 @@
 #include <iostream>
 #include <limits>
 #include <sstream>
-#include <random>
-
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -19,22 +16,10 @@ struct Config {
     int edgeCount = 0;
     int levelCount = 5;
     int levelVolume = 50;
-struct Point {
-    std::string name;
-    double x;
-    double y;
-};
-
-struct Config {
-    int count = 200;
     double left = 0.0;
     double right = 1000.0;
     double bottom = 0.0;
     double top = 1000.0;
-    double radius = 0.0;
-    int attempts = 30;
-    unsigned int seed = 0;
-    bool hasSeed = false;
 };
 
 double parseDouble(const char *value, const std::string &option)
@@ -90,24 +75,6 @@ Config parseArgs(int argc, char **argv)
         } else if (arg == "-h" || arg == "--help") {
             std::cout
                 << "Usage: poisson_points [options]\n"
-        } else if (arg == "-r" || arg == "--radius") {
-            cfg.radius = parseDouble(nextValue(arg), arg);
-        } else if (arg == "-k" || arg == "--attempts") {
-            cfg.attempts = parseInt(nextValue(arg), arg);
-        } else if (arg == "--seed") {
-            cfg.seed = static_cast<unsigned int>(parseInt(nextValue(arg), arg));
-            cfg.hasSeed = true;
-        } else if (arg == "-h" || arg == "--help") {
-            std::cout
-                << "Usage: poisson_points [options]\n"
-                << "  -n, --count N       target point count, default 200\n"
-                << "  --left X            left bound, default 0\n"
-                << "  --right X           right bound, default 1000\n"
-                << "  --bottom Y          bottom bound, default 0\n"
-                << "  --top Y             top bound, default 1000\n"
-                << "  -r, --radius R      minimum distance; auto when omitted\n"
-                << "  -k, --attempts K    tries per active point, default 30\n"
-                << "  --seed S            random seed\n";
                 << "  -n, --count N          target node count, default 200\n"
                 << "  -e, --edges N          target edge count, default 0\n"
                 << "  -l, --levels N         hierarchy level count, default 5\n"
@@ -126,7 +93,6 @@ Config parseArgs(int argc, char **argv)
 }
 
 std::string addressToString(const std::vector<int> &address)
-std::vector<Point> poissonDiskSample(Config &cfg)
 {
     std::ostringstream out;
     for (std::size_t i = 0; i < address.size(); ++i) {
@@ -178,10 +144,6 @@ double nearestDistance(const std::vector<const Node *> &nodes)
     }
 
     double best = std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < points.size(); ++i) {
-        for (std::size_t j = i + 1; j < points.size(); ++j) {
-            double dx = points[i].x - points[j].x;
-            double dy = points[i].y - points[j].y;
     for (std::size_t i = 0; i < nodes.size(); ++i) {
         for (std::size_t j = i + 1; j < nodes.size(); ++j) {
             double dx = nodes[i]->x - nodes[j]->x;

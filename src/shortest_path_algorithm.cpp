@@ -29,6 +29,21 @@ int ShortestPathAlgorithm::getCurrentFlow(const Edge *edge) const {
     return 0; // 默认返回0
 }
 
+double ShortestPathAlgorithm::getMinP1() const {
+    if (m_minP1Getter) {
+        return m_minP1Getter();
+    }
+    return 1.0; // 默认返回1.0
+}
+
+double ShortestPathAlgorithm::getTimeHeuristic(const Node *current, const Node *end) const {
+    // 时间启发函数：欧几里得距离 * 全局最小p1参数
+    // 这是从当前节点到目标节点的最小可能时间
+    double dist = euclideanDistance(current, end);
+    double minP1 = getMinP1();
+    return dist * minP1;
+}
+
 bool ShortestPathAlgorithm::aStarDistance(const Node *start, const Node *end,
                                           std::unordered_map<const Node*, const Edge*> &cameFrom) {
     if (start == end) return true;
@@ -86,8 +101,8 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
 
     // 初始化
     gScore[start] = 0.0;
-    // 启发函数：假设每条道路都可以全速通过（车流量为0）
-    fScore[start] = euclideanDistance(start, end);
+    // 启发函数：欧几里得距离 * 全局最小p1参数（最小可能时间）
+    fScore[start] = getTimeHeuristic(start, end);
     openSet.push({fScore[start], start});
 
     while (!openSet.empty()) {
@@ -111,9 +126,8 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
             if (gScore.find(neighbor) == gScore.end() || tentativeG < gScore[neighbor]) {
                 cameFrom[neighbor] = edge;
                 gScore[neighbor] = tentativeG;
-                // 启发函数：假设车流量为0，全速通过
-                double h = edge->getTime(0);
-                fScore[neighbor] = tentativeG + h;
+                // 启发函数：欧几里得距离 * 全局最小p1参数
+                fScore[neighbor] = tentativeG + getTimeHeuristic(neighbor, end);
                 openSet.push({fScore[neighbor], neighbor});
             }
         }
@@ -127,7 +141,12 @@ VPath ShortestPathAlgorithm::reconstructNodePath(const Node *start, const Node *
     VPath path;
     const Node *current = end;
 
-    while (current != start) {
+    if (start == end) {
+        path.push_back(start);
+        return path;
+    }
+
+    while (current != nullptr && current != start) {
         path.push_back(current);
         auto it = cameFrom.find(current);
         if (it == cameFrom.end()) {
@@ -135,8 +154,13 @@ VPath ShortestPathAlgorithm::reconstructNodePath(const Node *start, const Node *
         }
         current = it->second->from;
     }
-    path.push_back(start);
-    std::reverse(path.begin(), path.end());
+    
+    if (current == start) {
+        path.push_back(start);
+        std::reverse(path.begin(), path.end());
+    } else {
+        return {}; // 路径不完整
+    }
 
     return path;
 }
@@ -146,7 +170,11 @@ EPath ShortestPathAlgorithm::reconstructEdgePath(const Node *start, const Node *
     EPath path;
     const Node *current = end;
 
-    while (current != start) {
+    if (start == end) {
+        return path;
+    }
+
+    while (current != nullptr && current != start) {
         auto it = cameFrom.find(current);
         if (it == cameFrom.end()) {
             return {}; // 路径不完整
@@ -154,8 +182,12 @@ EPath ShortestPathAlgorithm::reconstructEdgePath(const Node *start, const Node *
         path.push_back(it->second);
         current = it->second->from;
     }
-    std::reverse(path.begin(), path.end());
+    
+    if (current != start) {
+        return {}; // 路径不完整
+    }
 
+    std::reverse(path.begin(), path.end());
     return path;
 }
 

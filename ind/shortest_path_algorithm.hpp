@@ -44,12 +44,27 @@ public:
         m_flowQueryFunc = flowQueryFunc;
     }
 
+    // 设置全局最小p1参数获取接口
+    void setMinP1Getter(std::function<double()> minP1Getter) {
+        m_minP1Getter = minP1Getter;
+    }
+
 private:
     const Graph *m_graph;
     // 邻接表：节点 -> 连接的边列表
     std::unordered_map<const Node*, std::vector<const Edge*>> m_adjacencyList;
     // 流量查询函数
     std::function<int(const Edge*)> m_flowQueryFunc;
+    // 全局最小p1参数获取函数
+    std::function<double()> m_minP1Getter;
+
+    /**
+     * @brief 获取时间启发值（从当前节点到目标节点的最小可能时间）
+     * @param current 当前节点
+     * @param end 目标节点
+     * @return 启发值
+     */
+    double getTimeHeuristic(const Node *current, const Node *end) const;
 
     /**
      * @brief 计算两点之间的欧氏距离
@@ -105,6 +120,12 @@ private:
      * @return 当前流量
      */
     int getCurrentFlow(const Edge *edge) const;
+
+    /**
+     * @brief 获取全局最小p1参数
+     * @return 最小p1值
+     */
+    double getMinP1() const;
 };
 
 #endif

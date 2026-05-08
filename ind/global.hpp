@@ -42,7 +42,7 @@ struct Edge {
      * @param n 流量
      * @return 计算的时间
      */
-    double getTime(int n)
+    double getTime(int n) const
     {
         double f;
 

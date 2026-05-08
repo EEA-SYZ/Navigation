@@ -3,6 +3,7 @@
 #include<limits>
 #include<algorithm>
 
+//todo code review
 DataManager::DataManager(const Graph& graph)
 {
     graphManager=graph;
@@ -98,8 +99,10 @@ DataManager::~DataManager()
     cellBucket.clear();
 }
 
+//todo 降级成辅助测试函数
 std::set<const Node*> DataManager::hashSearch(int left,int right,int top,int bottom,int level)
 {
+    level=0;
     std::set<const Node*> result;
     int xmin=std::min(left,right);
     int xmax=std::max(left,right);
@@ -137,39 +140,77 @@ std::set<const Node*> DataManager::hashSearch(int left,int right,int top,int bot
 //todo 为什么没有传点进来
 std::priority_queue<Distancecmp> DataManager::priorityQueueSearch(int left,int right,int top,int bottom,int level)
 {
+    level=0;
     std::priority_queue<Distancecmp> result;
-    int centerX=(left+right)/2;
-    int centerY=(top+bottom)/2;
-    std::unordered_set<const Node*> uniqueSet;
-    const int MAX_SIZE=100;
-    while(result.size() != 100 && left >= leftBound && right <= rightBound && top <= topBound && bottom >= bottomBound)
+    std::priority_queue<std::pair<double,Cell>,std::vector<std::pair<double,Cell>>,std::greater<std::pair<double,Cell>>> cellQueue;
+    std::unordered_set<Cell, pairHash> visitedCells;
+    std::unordered_set<const Node*> visitedNodes;
+    double centerX=(left+right)/2.0;
+    double centerY=(top+bottom)/2.0;
+    int centerCol=(int) std::floor((centerX-leftBound)/cellWidth);
+    int centerRow=(int) std::floor((centerY-bottomBound)/cellHeight);
+    centerCol=std::clamp(centerCol,0,colNums-1);
+    centerRow=std::clamp(centerRow,0,rowNums-1);
+    cellQueue.push(cellCalculateDistance(centerCol,centerRow,centerX,centerY));
+    visitedCells.insert({centerCol,centerRow});
+
+    auto tryPushCell = [&](int nextCol, int nextRow)
     {
-        std::set<const Node*> nodeSet=hashSearch(left,right,top,bottom,level);
-        for(const auto& node:nodeSet)
+        if (nextCol < 0 || nextCol >= colNums || nextRow < 0 || nextRow >= rowNums)
         {
-            if(uniqueSet.find(node) != uniqueSet.end())
+            return;
+        }
+        if (isCellVisited(nextCol, nextRow, visitedCells))
+        {
+            return;
+        }
+        cellQueue.push(cellCalculateDistance(nextCol, nextRow, centerX, centerY));
+        visitedCells.insert({nextCol, nextRow});
+    };
+
+    while (!cellQueue.empty())
+    {
+        auto [distance, cell] = cellQueue.top();
+        auto [col,row] = cell;
+        cellQueue.pop();
+
+        if (result.size() >= 100 && distance >= result.top().first)
+        {
+            break;
+        }
+
+        auto it = cellBucket.find(cell);
+        if (it != cellBucket.end())
+        {
+            for (const auto& node : it->second)
             {
-                continue;
-            }
-            uniqueSet.insert(node);
-            double distance=std::sqrt(std::pow(node->x-centerX,2)+std::pow(node->y-centerY,2));
-            result.push({distance,node});
-            //100 后续可能不会写死
-            if(result.size()>MAX_SIZE)
-            {
-                result.pop();
+                if (node == nullptr || visitedNodes.find(node) != visitedNodes.end())
+                {
+                    continue;
+                }
+
+                visitedNodes.insert(node);
+                double nodeDistance = std::hypot(node->x-centerX,node->y-centerY);
+                result.push({nodeDistance,node});
+                if (result.size() > 100)
+                {
+                    result.pop();
+                }
             }
         }
-        left-=MAX_SIZE/2;
-        right+=MAX_SIZE/2;
-        top+=MAX_SIZE/2;
-        bottom-=MAX_SIZE/2;
+
+        tryPushCell(col,row+1);
+        tryPushCell(col,row-1);
+        tryPushCell(col+1,row);
+        tryPushCell(col-1,row);
     }
+    
     return result;
 }
 
 Graph DataManager::GraphqueryDataInViewport(int left, int right, int top, int bottom, int level)
 {
+    level=0;
     std::set<const Node*> nodeSet;
     std::priority_queue<Distancecmp> topNodes=priorityQueueSearch(left,right,top,bottom,level);
     while (!topNodes.empty())
@@ -181,8 +222,17 @@ Graph DataManager::GraphqueryDataInViewport(int left, int right, int top, int bo
     std::set<const Edge*> edgeSet;
     for(const auto& node:nodeSet)
     {
+        //跳过nullptr
+        if (node == nullptr)
+        {
+            continue;
+        }
         for(const auto& edge:node->edges)
         {
+            if (edge == nullptr || edge->from == nullptr || edge->to == nullptr)
+            {
+                continue;
+            }
             if(nodeSet.find(edge->from) != nodeSet.end() && nodeSet.find(edge->to) != nodeSet.end())
             {
                 edgeSet.insert(edge);
@@ -190,4 +240,39 @@ Graph DataManager::GraphqueryDataInViewport(int left, int right, int top, int bo
         }
     }
     return {nodeSet,edgeSet};
+}
+
+std::pair<double,Cell> DataManager::cellCalculateDistance(int col,int row,double centerX,double centerY) const
+{
+    double cellLeft = leftBound + col * cellWidth;
+    double cellRight = (col == colNums - 1) ? rightBound : cellLeft + cellWidth;
+    double cellBottom = bottomBound + row * cellHeight;
+    double cellTop = (row == rowNums - 1) ? topBound : cellBottom + cellHeight;
+
+    double dx = 0.0;
+    if (centerX < cellLeft)
+    {
+        dx = cellLeft - centerX;
+    }
+    else if (centerX > cellRight)
+    {
+        dx = centerX - cellRight;
+    }
+
+    double dy = 0.0;
+    if (centerY < cellBottom)
+    {
+        dy = cellBottom - centerY;
+    }
+    else if (centerY > cellTop)
+    {
+        dy = centerY - cellTop;
+    }
+
+    return {std::hypot(dx, dy), {col, row}};
+}
+
+bool DataManager::isCellVisited(int col,int row,const std::unordered_set<Cell, pairHash>& visitedCells) const
+{
+    return visitedCells.find({col,row})!=visitedCells.end();
 }

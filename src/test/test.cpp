@@ -89,6 +89,27 @@ void priorityQueueSearchBasicTopKTest();
 void GraphqueryDataInViewportTest();
 
 /**
+ * @brief //TODO: 测试 level 兼容性
+ * @note 同一查询条件下，level=0 与非0时返回结果应一致
+ */
+void GraphqueryDataInViewportLevelCompatibility();
+
+/**
+ * @brief 测试 priorityQueueSearch 在节点不足100时不会卡住
+ */
+void priorityQueueSearchLessThan100Test();
+
+/**
+ * @brief 测试同中心不同视口时，priorityQueueSearch 结果一致
+ */
+void priorityQueueSearchSameCenterDifferentViewportTest();
+
+/**
+ * @brief 测试 GraphqueryDataInViewport 对空边的鲁棒性
+ */
+void GraphqueryDataInViewportNullEdgeTest();
+
+/**
  * @brief 测试函数
  */
 int main()
@@ -108,8 +129,11 @@ int main()
        hashSearchOverlapBoundaryTest();
        hashSearchNullNodeTest();
        priorityQueueSearchBasicTopKTest();
+       priorityQueueSearchLessThan100Test();
+       priorityQueueSearchSameCenterDifferentViewportTest();
        GraphqueryDataInViewportTest();
-    }
+       GraphqueryDataInViewportNullEdgeTest();
+     }
 }
 
 
@@ -462,17 +486,139 @@ void GraphqueryDataInViewportTest()
     Graph graph={constNodes,constEdges};
     DataManager dataManager(graph);
     auto result=dataManager.GraphqueryDataInViewport(0,4,0,0,0);
-    assert(result.first.size()==3);
-    assert(result.second.size()==2);
+    assert(result.first.size()==4);
+    assert(result.second.size()==4);
     for(auto it:result.first)   {
-        assert(it->name=="A" || it->name=="B" || it->name=="C");            
+        assert(it->name=="A" || it->name=="B" || it->name=="C" || it->name=="D");
     }
     for(auto it:result.second)
     {
-        assert(it->name=="AB" || it->name=="BC");
+        assert(it->name=="AB" || it->name=="BC" || it->name=="CD" || it->name=="BD");
     }
     for(auto it:nodes)
     {
         delete it;
     }
+}
+
+void priorityQueueSearchLessThan100Test()
+{
+    std::set<const Node*> nodes={
+        new Node{"A", {}, 0, 0, {0}},
+        new Node{"B", {}, 1, 0, {1}},
+        new Node{"C", {}, 0, 1, {2}},
+        new Node{"D", {}, 1, 1, {3}}
+    };
+    Graph graph={nodes,{}};
+    DataManager dataManager(graph);
+    auto result=dataManager.priorityQueueSearch(100,120,120,100,0);
+    assert(result.size()==4);
+    std::set<std::string> nodeName;
+    while(!result.empty())
+    {
+        auto node=result.top();
+        result.pop();
+        nodeName.insert(node.second->name);
+    }
+    assert(nodeName.size()==4);
+    assert(nodeName.find("A") != nodeName.end());
+    assert(nodeName.find("B") != nodeName.end());
+    assert(nodeName.find("C") != nodeName.end());
+    assert(nodeName.find("D") != nodeName.end());
+    for(auto it:nodes)
+    {
+        delete it;
+    }
+}
+
+void priorityQueueSearchSameCenterDifferentViewportTest()
+{
+    std::set<const Node*> nodes;
+    for(int i=1;i<=101;i++)
+    {
+        std::string suffix=std::to_string(i);
+        if(i<10)
+        {
+            suffix="00"+suffix;
+        }
+        else if(i<100)
+        {
+            suffix="0"+suffix;
+        }
+        nodes.insert(new Node{"K"+suffix, {}, 0.1*i, 0, {i}});
+    }
+    nodes.insert(new Node{"L", {}, -100, 0, {102}});
+    nodes.insert(new Node{"R", {}, 100, 0, {103}});
+    nodes.insert(new Node{"T", {}, 0, 100, {104}});
+    nodes.insert(new Node{"B", {}, 0, -100, {105}});
+
+    Graph graph={nodes,{}};
+    DataManager dataManager(graph);
+
+    auto collectNames = [](std::priority_queue<Distancecmp> queue)
+    {
+        std::set<std::string> names;
+        while(!queue.empty())
+        {
+            names.insert(queue.top().second->name);
+            queue.pop();
+        }
+        return names;
+    };
+
+    auto smallViewport=dataManager.priorityQueueSearch(-20,20,20,-20,0);
+    auto largeViewport=dataManager.priorityQueueSearch(-200,200,200,-200,0);
+    auto smallNames=collectNames(smallViewport);
+    auto largeNames=collectNames(largeViewport);
+
+    assert(smallNames.size()==100);
+    assert(largeNames.size()==100);
+    assert(smallNames==largeNames);
+
+    for(auto it:nodes)
+    {
+        delete it;
+    }
+}
+
+void GraphqueryDataInViewportNullEdgeTest()
+{
+    Node* a=new Node{"A", {}, 0, 0, {0}};
+    Node* b=new Node{"B", {}, 1, 0, {1}};
+    Node* c=new Node{"C", {}, 2, 0, {2}};
+    std::set<Node*> nodes={a,b,c};
+    Edge* validEdge=new Edge{"AB",nullptr,nullptr, 1.0, 100, 1.0, 1.0};
+    Edge* nullFromEdge=new Edge{"XB",nullptr,nullptr, 1.0, 100, 1.0, 1.0};
+    Edge* nullToEdge=new Edge{"AY",nullptr,nullptr, 1.0, 100, 1.0, 1.0};
+
+    validEdge->from=a;
+    validEdge->to=b;
+    nullFromEdge->from=nullptr;
+    nullFromEdge->to=b;
+    nullToEdge->from=a;
+    nullToEdge->to=nullptr;
+
+    a->edges.push_back(validEdge);
+    a->edges.push_back(nullptr);
+    a->edges.push_back(nullToEdge);
+    b->edges.push_back(validEdge);
+    b->edges.push_back(nullFromEdge);
+    c->edges.push_back(nullptr);
+
+    std::set<const Node*> constNodes(nodes.begin(), nodes.end());
+    std::set<const Edge*> constEdges={validEdge, nullFromEdge, nullToEdge};
+    Graph graph={constNodes,constEdges};
+    DataManager dataManager(graph);
+    auto result=dataManager.GraphqueryDataInViewport(0,2,0,0,0);
+    assert(result.first.size()==3);
+    assert(result.second.size()==1);
+    assert((*result.second.begin())->name=="AB");
+
+    for(auto it:nodes)
+    {
+        delete it;
+    }
+    delete validEdge;
+    delete nullFromEdge;
+    delete nullToEdge;
 }

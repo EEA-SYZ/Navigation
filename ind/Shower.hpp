@@ -18,10 +18,10 @@ public:
         window = new sf::RenderWindow(sf::VideoMode(1200, 800), L"地图可视化");
         window->setFramerateLimit(60);
         
-        // 初始化视口（显示整个图区域）
+        // 初始化视口
         viewport.left = 0;
-        viewport.right = mapWidth;
-        viewport.top = mapHeight;
+        viewport.right = window->getSize().x;
+        viewport.top = window->getSize().y;
         viewport.bottom = 0;
         viewport.level = 0;
         
@@ -38,18 +38,24 @@ public:
         delete window;
     }
     
-    // 执行一次主循环
-    bool Tick() 
+    /**
+     * @brief 执行一次主循环
+     * @return 如果点击了节点返回节点指针；如果窗口关闭返回 nullptr；否则返回 nullptr
+     */
+    const Node* Tick() 
     {
         if (!window->isOpen()) {
-            return false;
+            return nullptr;
         }
+        
+        // 重置点击结果
+        const Node* result = nullptr;
         
         sf::Event event;
         while (window->pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window->close();
-                return false;
+                return nullptr;
             }
             // 滚轮缩放事件
             if (event.type == sf::Event::MouseWheelScrolled) {
@@ -64,6 +70,8 @@ public:
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     isDragging = true;
                     lastMousePos = sf::Mouse::getPosition(*window);
+                    // 记录按下时的节点
+                    pressedNode = getNodeAtPosition(lastMousePos);
                 }
             }
             // 鼠标移动事件（拖拽平移）
@@ -74,6 +82,14 @@ public:
             if (event.type == sf::Event::MouseButtonReleased) {
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     isDragging = false;
+                    // 检测释放时是否在同一个节点上
+                    sf::Vector2i releasePos = sf::Mouse::getPosition(*window);
+                    const Node* releasedNode = getNodeAtPosition(releasePos);
+                    // 如果按下和释放都在同一个节点上，返回该节点
+                    if (pressedNode != nullptr && releasedNode != nullptr && pressedNode == releasedNode) {
+                        result = pressedNode;
+                    }
+                    pressedNode = nullptr;
                 }
             }
         }
@@ -81,7 +97,7 @@ public:
         // 绘制地图
         drawMap();
         
-        return true;
+        return result;
     }
     
     bool IsOpen() const { return window->isOpen(); }
@@ -89,11 +105,11 @@ public:
 private:
     // 视口结构体
     struct Viewport {
-        double left = 0;      // 左边界
-        double right = 10000; // 右边界
-        double top = 10000;   // 上边界
-        double bottom = 0;    // 下边界
-        int level = 0;        // 当前层级
+        double left;      // 左边界
+        double right;     // 右边界
+        double top;       // 上边界
+        double bottom;    // 下边界
+        int level;        // 当前层级
         
         double getWidth() const { return right - left; }
         double getHeight() const { return top - bottom; }
@@ -111,9 +127,12 @@ private:
     double oldWindowWidth;
     double oldWindowHeight;
     
+    Graph currentGraph;  // 当前画面中的图
+    
     // 拖拽相关
     bool isDragging;
     sf::Vector2i lastMousePos;
+    const Node* pressedNode = nullptr;
     
     // 处理滚轮缩放
     void handleZoom(const sf::Event& event) 
@@ -178,12 +197,33 @@ private:
         lastMousePos = currentMousePos;
     }
     
+    // 获取鼠标位置对应的节点
+    const Node* getNodeAtPosition(const sf::Vector2i& mousePos)
+    {
+        double scaleX = window->getSize().x / viewport.getWidth();
+        double scaleY = window->getSize().y / viewport.getHeight();
+        double graphX = viewport.left + static_cast<double>(mousePos.x) / scaleX;
+        double graphY = viewport.top - static_cast<double>(mousePos.y) / scaleY;
+        
+        // 检查是否有节点在鼠标位置附近
+        for (const Node* node : currentGraph.first) {
+            double dx = node->x - graphX;
+            double dy = node->y - graphY;
+            double distance = std::sqrt(dx * dx + dy * dy);
+            if (distance < 10.0) {  // 节点检测半径
+                return node;
+            }
+        }
+        return nullptr;
+    }
+    
     // 绘制地图
     void drawMap() 
     {
         window->clear(sf::Color::White);
         
-        Graph visibleGraph = dataManager->queryDataInViewport(
+        // 查询并存储当前画面中的图
+        currentGraph = dataManager->queryDataInViewport(
             static_cast<int>(viewport.left),
             static_cast<int>(viewport.right),
             static_cast<int>(viewport.top),
@@ -199,7 +239,7 @@ private:
         float outlineThickness = std::max(2.0f, static_cast<float>(scaleX * 3));
 
         // 绘制边
-        for (const Edge* edge : visibleGraph.second) {
+        for (const Edge* edge : currentGraph.second) {
             sf::Vector2f start(
                 (edge->from->x - viewport.left) * scaleX,
                 (viewport.top - edge->from->y) * scaleY
@@ -231,7 +271,7 @@ private:
         }
 
         // 绘制节点
-        for (const Node* node : visibleGraph.first) {
+        for (const Node* node : currentGraph.first) {
             sf::Vector2f position(
                 (node->x - viewport.left) * scaleX,
                 (viewport.top - node->y) * scaleY

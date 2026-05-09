@@ -131,13 +131,22 @@ int main() {
         screen.Tick();
         screen.Draw();
         if (isConfirm) {
-            static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
-            if (shower.IsOpen()) {
-                shower.Tick();
-            } else {
-                break;
-            }
+            break;
         }
+    }
+
+    screen.FreeAll();
+    auto btn = new ui::Button;{
+        btn->AddTo(ver);
+        btn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        btn->SetCaption("计算最短路");
+    }
+    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+    
+    while (screen.IsOpen() && shower.IsOpen()) {
+        screen.Tick();
+        screen.Draw();
+        shower.Tick();
     }
     
     return 0;

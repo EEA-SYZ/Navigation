@@ -17,9 +17,9 @@ struct Config {
     int levelCount = 5;
     int levelVolume = 50;
     double left = 0.0;
-    double right = 1000.0;
+    double right = 10000.0;
     double bottom = 0.0;
-    double top = 1000.0;
+    double top = 10000.0;
 };
 
 double parseDouble(const char *value, const std::string &option)
@@ -227,27 +227,35 @@ int main(int argc, char **argv)
             cfg.levelVolume
         );
         const Graph &graph = maker.getGraph();
-
+        
         std::vector<const Node *> nodes(graph.first.begin(), graph.first.end());
         std::sort(nodes.begin(), nodes.end(), [](const Node *lhs, const Node *rhs) {
             return lhs->name < rhs->name;
         });
-
+        
         std::cerr << "generated nodes: " << nodes.size() << " / " << cfg.count << '\n';
         std::cerr << "generated edges: " << graph.second.size() << " / " << cfg.edgeCount << '\n';
+
+        auto end = std::chrono::steady_clock::now();
+        auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+        std::cerr << "ms: " << dur.count() << '\n';
+
         if (!graph.second.empty() && graph.second.size() <= 5000) {
             std::cerr << "edge crossings: " << countCrossingEdges(graph) << '\n';
         } else if (!graph.second.empty()) {
             std::cerr << "edge crossings: skipped for " << graph.second.size()
-                      << " edges\n";
+            << " edges\n";
         }
         std::cerr << "levels: " << cfg.levelCount << '\n';
-        if (nodes.size() >= 2) {
+        if (nodes.size() >= 5000) {
+            std::cerr << "skipped nearest distance calculation for " << nodes.size() << " nodes\n";
+        } else if (nodes.size() >= 2) {
             std::cerr << "nearest distance: " << std::fixed << std::setprecision(4)
                       << nearestDistance(nodes) << '\n';
         }
 
-        std::cout << "kind,name,x,y,address,level,from,to,length,volume,edge_level\n";
+        std::cout << "kind,name,x,y,address,level,from,to,length,volume,p1,p2,current_flow,edge_level\n";
         std::cout << std::fixed << std::setprecision(8);
         for (const Node *node : nodes) {
             std::cout << "node,"
@@ -255,7 +263,7 @@ int main(int argc, char **argv)
                       << node->x << ','
                       << node->y << ','
                       << addressToString(node->address) << ','
-                      << representativeLevel(node) << ",,,,,\n";
+                      << representativeLevel(node) << ",,,,,,,,\n";
         }
 
         std::vector<const Edge *> edges(graph.second.begin(), graph.second.end());
@@ -270,6 +278,8 @@ int main(int argc, char **argv)
                       << edge->to->name << ','
                       << edge->length << ','
                       << edge->volume << ','
+                      << edge->p1 << ','
+                      << edge->p2 << ','
                       << commonAddressLevel(edge->from, edge->to) << '\n';
         }
     } catch (const std::exception &ex) {
@@ -277,9 +287,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    auto end = std::chrono::steady_clock::now();
-    auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cerr << "ms: " << dur.count() << '\n';
 
     return 0;
 }

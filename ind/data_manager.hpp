@@ -7,7 +7,10 @@
 #include <queue>
 #include <iostream>
 #include <unordered_set>
+#include <tuple>
+
 using Distancecmp = std::pair<double,const Node*>;
+using Cell=std::pair<int,int>;
 
 struct pairHash {
     std::size_t operator() (const std::pair<int, int> &pair) const {
@@ -28,12 +31,13 @@ public:
      * @param bottom 视口的下边界
      * @param level 查询的图的层级
      * @return Graph 视口内的节点和边
+     * @note level=0
      */
-    Graph GraphqueryDataInViewport(
+    Graph queryDataInViewport(
         int left, int right, int top, int bottom, int level
     );
     /**
-     * @brief 均匀网格哈希拿候选点
+     * @brief 均匀网格哈希拿候选点,已成为白盒测试函数
      * @param left 视口的左边界
      * @param right 视口的右边界
      * @param top 视口的上边界 
@@ -93,6 +97,8 @@ private:
     Graph graphManager;
     void initCellData(const Graph& graph);
     void initHash(const Graph& graph);
+    std::pair<double,Cell> cellCalculateDistance(int col,int row,double centerX,double centerY) const;
+    bool isCellVisited(int col,int row,const std::unordered_set<Cell, pairHash>& visitedCells) const;
 };
 
 #endif

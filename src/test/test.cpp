@@ -95,6 +95,16 @@ void GraphqueryDataInViewportTest();
 void GraphqueryDataInViewportLevelCompatibility();
 
 /**
+ * @brief 测试 GraphqueryDataInViewport 在节点多于100时返回恰好100个节点
+ */
+void GraphqueryDataInViewportExactly100Test();
+
+/**
+ * @brief 测试 GraphqueryDataInViewport 在反向/越界边界下结果一致
+ */
+void GraphqueryDataInViewportBoundaryConsistencyTest();
+
+/**
  * @brief 测试 priorityQueueSearch 在节点不足100时不会卡住
  */
 void priorityQueueSearchLessThan100Test();
@@ -132,8 +142,11 @@ int main()
        priorityQueueSearchLessThan100Test();
        priorityQueueSearchSameCenterDifferentViewportTest();
        GraphqueryDataInViewportTest();
+       GraphqueryDataInViewportLevelCompatibility();
+       GraphqueryDataInViewportExactly100Test();
+       GraphqueryDataInViewportBoundaryConsistencyTest();
        GraphqueryDataInViewportNullEdgeTest();
-     }
+      }
 }
 
 
@@ -485,7 +498,7 @@ void GraphqueryDataInViewportTest()
     std::set<const Edge*> constEdges(edges.begin(), edges.end());
     Graph graph={constNodes,constEdges};
     DataManager dataManager(graph);
-    auto result=dataManager.GraphqueryDataInViewport(0,4,0,0,0);
+    auto result=dataManager.queryDataInViewport(0,4,0,0,0);
     assert(result.first.size()==4);
     assert(result.second.size()==4);
     for(auto it:result.first)   {
@@ -609,7 +622,7 @@ void GraphqueryDataInViewportNullEdgeTest()
     std::set<const Edge*> constEdges={validEdge, nullFromEdge, nullToEdge};
     Graph graph={constNodes,constEdges};
     DataManager dataManager(graph);
-    auto result=dataManager.GraphqueryDataInViewport(0,2,0,0,0);
+    auto result=dataManager.queryDataInViewport(0,2,0,0,0);
     assert(result.first.size()==3);
     assert(result.second.size()==1);
     assert((*result.second.begin())->name=="AB");
@@ -621,4 +634,161 @@ void GraphqueryDataInViewportNullEdgeTest()
     delete validEdge;
     delete nullFromEdge;
     delete nullToEdge;
+}
+
+void GraphqueryDataInViewportLevelCompatibility()
+{
+    Node* a=new Node{"A", {}, 0, 0, {0}};
+    Node* b=new Node{"B", {}, 2, 0, {1}};
+    Node* c=new Node{"C", {}, 4, 0, {2}};
+    std::set<Node*> nodes={a,b,c};
+    Edge* ab=new Edge{"AB", a, b, 2.0, 100, 1.0, 1.0};
+    Edge* bc=new Edge{"BC", b, c, 2.0, 100, 1.0, 1.0};
+    a->edges.push_back(ab);
+    b->edges.push_back(ab);
+    b->edges.push_back(bc);
+    c->edges.push_back(bc);
+
+    Graph graph={{a,b,c},{ab,bc}};
+    DataManager dataManager(graph);
+    auto level0=dataManager.queryDataInViewport(0,4,0,0,0);
+    auto level3=dataManager.queryDataInViewport(0,4,0,0,3);
+
+    std::set<std::string> level0Nodes;
+    std::set<std::string> level3Nodes;
+    std::set<std::string> level0Edges;
+    std::set<std::string> level3Edges;
+    for(const auto& node:level0.first)
+    {
+        level0Nodes.insert(node->name);
+    }
+    for(const auto& node:level3.first)
+    {
+        level3Nodes.insert(node->name);
+    }
+    for(const auto& edge:level0.second)
+    {
+        level0Edges.insert(edge->name);
+    }
+    for(const auto& edge:level3.second)
+    {
+        level3Edges.insert(edge->name);
+    }
+
+    assert(level0Nodes==level3Nodes);
+    assert(level0Edges==level3Edges);
+
+    delete a;
+    delete b;
+    delete c;
+    delete ab;
+    delete bc;
+}
+
+void GraphqueryDataInViewportExactly100Test()
+{
+    std::set<const Node*> nodes;
+    for(int i=1;i<=101;i++)
+    {
+        std::string suffix=std::to_string(i);
+        if(i<10)
+        {
+            suffix="00"+suffix;
+        }
+        else if(i<100)
+        {
+            suffix="0"+suffix;
+        }
+        nodes.insert(new Node{"K"+suffix, {}, 0.1*i, 0, {i}});
+    }
+    nodes.insert(new Node{"L", {}, -100, 0, {102}});
+    nodes.insert(new Node{"R", {}, 100, 0, {103}});
+    nodes.insert(new Node{"T", {}, 0, 100, {104}});
+    nodes.insert(new Node{"B", {}, 0, -100, {105}});
+
+    Graph graph={nodes,{}};
+    DataManager dataManager(graph);
+    auto result=dataManager.queryDataInViewport(-20,20,20,-20,0);
+    assert(result.first.size()==100);
+    assert(result.second.empty());
+
+    std::set<std::string> nodeNames;
+    for(const auto& node:result.first)
+    {
+        nodeNames.insert(node->name);
+    }
+    assert(nodeNames.find("K101") == nodeNames.end());
+    assert(nodeNames.find("L") == nodeNames.end());
+    assert(nodeNames.find("R") == nodeNames.end());
+    assert(nodeNames.find("T") == nodeNames.end());
+    assert(nodeNames.find("B") == nodeNames.end());
+
+    for(auto it:nodes)
+    {
+        delete it;
+    }
+}
+
+void GraphqueryDataInViewportBoundaryConsistencyTest()
+{
+    Node* a=new Node{"A", {}, -2, 0, {0}};
+    Node* b=new Node{"B", {}, 0, 0, {1}};
+    Node* c=new Node{"C", {}, 2, 0, {2}};
+    Node* d=new Node{"D", {}, 0, 2, {3}};
+    std::set<Node*> nodes={a,b,c,d};
+    Edge* ab=new Edge{"AB", a, b, 2.0, 100, 1.0, 1.0};
+    Edge* bc=new Edge{"BC", b, c, 2.0, 100, 1.0, 1.0};
+    Edge* bd=new Edge{"BD", b, d, 2.0, 100, 1.0, 1.0};
+    a->edges.push_back(ab);
+    b->edges.push_back(ab);
+    b->edges.push_back(bc);
+    c->edges.push_back(bc);
+    b->edges.push_back(bd);
+    d->edges.push_back(bd);
+
+    Graph graph={{a,b,c,d},{ab,bc,bd}};
+    DataManager dataManager(graph);
+
+    auto normal=dataManager.queryDataInViewport(-10,10,10,-10,0);
+    auto reversed=dataManager.queryDataInViewport(10,-10,-10,10,0);
+    auto oversized=dataManager.queryDataInViewport(-100,100,100,-100,0);
+
+    auto collectNodeNames = [](const Graph& current)
+    {
+        std::set<std::string> names;
+        for(const auto& node:current.first)
+        {
+            names.insert(node->name);
+        }
+        return names;
+    };
+    auto collectEdgeNames = [](const Graph& current)
+    {
+        std::set<std::string> names;
+        for(const auto& edge:current.second)
+        {
+            names.insert(edge->name);
+        }
+        return names;
+    };
+
+    auto normalNodes=collectNodeNames(normal);
+    auto reversedNodes=collectNodeNames(reversed);
+    auto oversizedNodes=collectNodeNames(oversized);
+    auto normalEdges=collectEdgeNames(normal);
+    auto reversedEdges=collectEdgeNames(reversed);
+    auto oversizedEdges=collectEdgeNames(oversized);
+
+    assert(normalNodes==reversedNodes);
+    assert(normalNodes==oversizedNodes);
+    assert(normalEdges==reversedEdges);
+    assert(normalEdges==oversizedEdges);
+
+    delete a;
+    delete b;
+    delete c;
+    delete d;
+    delete ab;
+    delete bc;
+    delete bd;
 }

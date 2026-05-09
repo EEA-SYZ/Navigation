@@ -33,11 +33,11 @@ public:
      * @return Graph 视口内的节点和边
      * @note level=0
      */
-    Graph GraphqueryDataInViewport(
+    Graph queryDataInViewport(
         int left, int right, int top, int bottom, int level
     );
     /**
-     * @brief 均匀网格哈希拿候选点
+     * @brief 均匀网格哈希拿候选点,已成为白盒测试函数
      * @param left 视口的左边界
      * @param right 视口的右边界
      * @param top 视口的上边界 

@@ -208,7 +208,7 @@ std::priority_queue<Distancecmp> DataManager::priorityQueueSearch(int left,int r
     return result;
 }
 
-Graph DataManager::GraphqueryDataInViewport(int left, int right, int top, int bottom, int level)
+Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom, int level)
 {
     level=0;
     std::set<const Node*> nodeSet;

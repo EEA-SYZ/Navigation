@@ -11,15 +11,7 @@ ShortestPathAlgorithm::ShortestPathAlgorithm(const Graph &graph)
 ShortestPathAlgorithm::~ShortestPathAlgorithm() {}
 
 double ShortestPathAlgorithm::euclideanDistance(const Node *a, const Node *b) const {
-    if (a->address.size() != b->address.size()) {
-        return 0.0;
-    }
-    double sum = 0.0;
-    for (size_t i = 0; i < a->address.size(); ++i) {
-        double diff = static_cast<double>(a->address[i] - b->address[i]);
-        sum += diff * diff;
-    }
-    return std::sqrt(sum);
+    return std::sqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
 }
 
 int ShortestPathAlgorithm::getCurrentFlow(const Edge *edge) const {
@@ -58,7 +50,7 @@ bool ShortestPathAlgorithm::aStarDistance(const Node *start, const Node *end,
     // 初始化
     gScore[start] = 0.0;
     fScore[start] = euclideanDistance(start, end);
-    openSet.push({fScore[start], start});
+    openSet.push({gScore[start] + fScore[start], start});
 
     while (!openSet.empty()) {
         const Node *current = openSet.top().second;
@@ -80,7 +72,7 @@ bool ShortestPathAlgorithm::aStarDistance(const Node *start, const Node *end,
                 cameFrom[neighbor] = edge;
                 gScore[neighbor] = tentativeG;
                 fScore[neighbor] = tentativeG + euclideanDistance(neighbor, end);
-                openSet.push({fScore[neighbor], neighbor});
+                openSet.push({gScore[neighbor] + fScore[neighbor], neighbor});
             }
         }
     }
@@ -103,7 +95,7 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
     gScore[start] = 0.0;
     // 启发函数：欧几里得距离 * 全局最小p1参数（最小可能时间）
     fScore[start] = getTimeHeuristic(start, end);
-    openSet.push({fScore[start], start});
+    openSet.push({gScore[start] + fScore[start], start});
 
     while (!openSet.empty()) {
         const Node *current = openSet.top().second;
@@ -128,7 +120,7 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
                 gScore[neighbor] = tentativeG;
                 // 启发函数：欧几里得距离 * 全局最小p1参数
                 fScore[neighbor] = tentativeG + getTimeHeuristic(neighbor, end);
-                openSet.push({fScore[neighbor], neighbor});
+                openSet.push({gScore[neighbor] + fScore[neighbor], neighbor});
             }
         }
     }

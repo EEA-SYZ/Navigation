@@ -281,7 +281,13 @@ private:
                 adjustedDirection.y * adjustedDirection.y
             ));
 
-            sf::RectangleShape lineShape(sf::Vector2f(adjustedLength, lineThickness));
+            // 检查是否在路径上，路径边线更粗
+            float currentThickness = lineThickness;
+            if (Tag::instance()[edge]["onpath"] == "1") {
+                currentThickness = lineThickness * 3.5f;  // 路径边线粗3.5倍
+            }
+            
+            sf::RectangleShape lineShape(sf::Vector2f(adjustedLength, currentThickness));
             // 检查是否在路径上
             if (Tag::instance()[edge]["onpath"] == "1") {
                 lineShape.setFillColor(sf::Color(255, 0, 0));  // 红色表示路径
@@ -290,7 +296,7 @@ private:
             }
             lineShape.setPosition(adjustedStart);
             lineShape.setRotation(std::atan2(adjustedDirection.y, adjustedDirection.x) * 180 / PI);
-            lineShape.setOrigin(0, lineThickness / 2);
+            lineShape.setOrigin(0, currentThickness / 2);
 
             window->draw(lineShape);
         }

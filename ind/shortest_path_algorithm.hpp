@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <queue>
 #include <functional>
+#include <algorithm>
 
 class ShortestPathAlgorithm {
 public:

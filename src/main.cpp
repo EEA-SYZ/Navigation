@@ -139,6 +139,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
     // 初始化起点和终点
     const Node* startNode = nullptr;
     const Node* endNode = nullptr;
+    bool isPathCalculated = false;  // 是否已经计算了路径
     
     // 创建顶部信息栏布局
     auto* topBar = new ui::VerticalBox;{
@@ -168,11 +169,12 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
     // 清除路径标记函数
     auto clearPathTags = [&]() {
         for (const Node* node : path.first) {
-            Tag::instance()[node]["onpath"] = "0";
+            Tag::instance()[node].erase("onpath");
         }
         for (const Edge* edge : path.second) {
-            Tag::instance()[edge]["onpath"] = "0";
+            Tag::instance()[edge].erase("onpath");
         }
+        path = {};  // 清空路径
     };
 
     // 清除起点终点标记函数
@@ -194,9 +196,15 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
             Tag::instance()[endNode]["e"] = "1";
         }
     };
+    ui::Button* recalcBtn = nullptr;
+
+    // 显示/隐藏原有按钮
+    auto setOriginalButtonsVisible = [&](bool visible) {
+        btnBox->SetVisible(visible);
+    };
 
     // 计算距离最短路按钮
-    ui::Button* distanceBtn = new ui::Button;{
+    ui::Button* distanceBtn = new ui::Button;
         distanceBtn->AddTo(btnBox);
         distanceBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         distanceBtn->SetCaption("距离最短");
@@ -215,9 +223,14 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
                 for (const Edge* edge : path.second) {
                     Tag::instance()[edge]["onpath"] = "1";
                 }
+                
+                // 隐藏原有按钮，显示重新计算按钮
+                isPathCalculated = true;
+                setOriginalButtonsVisible(false);
+                recalcBtn->SetVisible(true);
             }
         });
-    }
+    
     
     // 计算时间最短路按钮
     ui::Button* timeBtn = new ui::Button;{
@@ -239,6 +252,11 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
                 for (const Edge* edge : path.second) {
                     Tag::instance()[edge]["onpath"] = "1";
                 }
+                
+                // 隐藏原有按钮，显示重新计算按钮
+                isPathCalculated = true;
+                setOriginalButtonsVisible(false);
+                recalcBtn->SetVisible(true);
             }
         });
     }
@@ -288,8 +306,41 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         });
     }
     
+    // 重新计算按钮（初始隐藏）
+    recalcBtn = new ui::Button;{
+        recalcBtn->AddTo(topBar);
+        recalcBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        recalcBtn->SetCaption("重新计算");
+        recalcBtn->SetVisible(false);  // 初始隐藏
+        recalcBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            // 清除路径标记
+            clearPathTags();
+            
+            // 清除起点终点标记
+            clearStartEndTags();
+            
+            // 重置状态
+            startNode = nullptr;
+            endNode = nullptr;
+            isPathCalculated = false;
+            
+            // 更新标签显示
+            startLabel->SetContent("起点: 未选择");
+            endLabel->SetContent("终点: 未选择");
+            
+            // 显示原有按钮，隐藏重新计算按钮
+            setOriginalButtonsVisible(true);
+            recalcBtn->SetVisible(false);
+        });
+    }
+    
     // 设置节点点击回调
     shower.SetNodeClickCallback([&](const Node* node) {
+        // 如果已经计算了路径，不响应节点点击
+        if (isPathCalculated) {
+            return;
+        }
+        
         // 如果点击的是当前选中的起点，则取消起点选中
         if (startNode == node) {
             Tag::instance()[startNode].erase("s");

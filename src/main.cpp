@@ -33,10 +33,16 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
         return dataMaker.queryCurrentFlowInEdge(edge);
     });
     // 创建SFML窗口
-    sf::RenderWindow window(sf::VideoMode(1200, 800), "地图可视化");
+    sf::RenderWindow window(sf::VideoMode(1200, 800), L"地图可视化");
     window.setFramerateLimit(60);
     // 初始化视口（显示整个图区域）
-    Viewport viewport(0, mapWidth, mapHeight, 0, 0);
+    Viewport viewport(0, window.getSize().x, window.getSize().y, 0, 0);
+    double oldWidth = window.getSize().x;
+    double oldHeight = window.getSize().y;
+    
+    // 拖拽相关变量
+    bool isDragging = false;
+    sf::Vector2i lastMousePos;
     // 主循环
     while (window.isOpen()) {
         sf::Event event;
@@ -64,10 +70,12 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
                 double newHeight = viewport.getHeight() * zoomFactor;
                 
                 // 限制视口最小和最大尺寸
-                const double minSize = 100;
-                const double maxSize = std::max(mapWidth, mapHeight) * 2;
-                newWidth = std::max(minSize, std::min(maxSize, newWidth));
-                newHeight = std::max(minSize, std::min(maxSize, newHeight));
+                double minSizeX = window.getSize().x * 0.2;
+                double minSizeY = window.getSize().y * 0.2;
+                double maxSizeX = window.getSize().x * 2;
+                double maxSizeY = window.getSize().y * 2;
+                newWidth = std::max(minSizeX, std::min(maxSizeX, newWidth));
+                newHeight = std::max(minSizeY, std::min(maxSizeY, newHeight));
                 
                 // 以鼠标位置为中心进行缩放（保持鼠标位置不变）
                 viewport.left = graphX - ratioX * newWidth;
@@ -76,17 +84,66 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
                 viewport.bottom = viewport.top - newHeight;
                 
                 // 确保视口边界不超出图的范围
-                viewport.left = std::max(0.0, viewport.left);
+                viewport.left = std::max(-static_cast<double>(window.getSize().x / 2), viewport.left);
                 viewport.right = std::min(static_cast<double>(mapWidth), viewport.right);
-                viewport.bottom = std::max(0.0, viewport.bottom);
+                viewport.bottom = std::max(-static_cast<double>(window.getSize().y / 2), viewport.bottom);
                 viewport.top = std::min(static_cast<double>(mapHeight), viewport.top);
             }
             
             // 窗口大小改变事件
             if (event.type == sf::Event::Resized) {
-                // 调整窗口视图以适应新大小
                 sf::FloatRect visibleArea(0, 0, event.size.width, event.size.height);
                 window.setView(sf::View(visibleArea));
+
+                double newWidth = viewport.getWidth() * (window.getSize().x / static_cast<double>(oldWidth));
+                double newHeight = viewport.getHeight() * (window.getSize().y / static_cast<double>(oldHeight));
+                auto nleft = viewport.left - (newWidth - viewport.getWidth()) / 2;
+                auto nright = viewport.right + (newWidth - viewport.getWidth()) / 2;
+                auto ntop = viewport.top + (newHeight - viewport.getHeight()) / 2;
+                auto nbottom = viewport.bottom - (newHeight - viewport.getHeight()) / 2;
+                viewport.left = nleft;
+                viewport.right = nright;
+                viewport.top = ntop;
+                viewport.bottom = nbottom;
+                oldWidth = window.getSize().x;
+                oldHeight = window.getSize().y;
+            }
+            
+            // 鼠标按下事件
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    isDragging = true;
+                    lastMousePos = sf::Mouse::getPosition(window);
+                }
+            }
+            
+            // 鼠标移动事件（拖拽平移）
+            if (event.type == sf::Event::MouseMoved && isDragging) {
+                sf::Vector2i currentMousePos = sf::Mouse::getPosition(window);
+                
+                // 计算鼠标移动的偏移量
+                int deltaX = currentMousePos.x - lastMousePos.x;
+                int deltaY = currentMousePos.y - lastMousePos.y;
+                
+                // 将像素偏移转换为图坐标偏移
+                double graphDeltaX = -deltaX * (viewport.getWidth() / window.getSize().x);
+                double graphDeltaY = deltaY * (viewport.getHeight() / window.getSize().y);
+                
+                // 更新视口位置
+                viewport.left += graphDeltaX;
+                viewport.right += graphDeltaX;
+                viewport.top += graphDeltaY;
+                viewport.bottom += graphDeltaY;
+                
+                // 更新鼠标位置
+                lastMousePos = currentMousePos;
+            }
+            
+            // 鼠标释放事件
+            if (event.type == sf::Event::MouseButtonReleased) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    isDragging = false;
+                }
             }
         }
         // 清空窗口
@@ -285,7 +342,7 @@ int main() {
         screen.Tick();
         screen.Draw();
         if (isConfirm) {
-            break;
+            screen.Close();
         }
     }
     

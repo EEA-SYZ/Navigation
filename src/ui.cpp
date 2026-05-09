@@ -377,6 +377,11 @@ bool ui::Screen::IsOpen() const noexcept
     return screen.isOpen();
 }
 
+void ui::Screen::Close() noexcept
+{
+    screen.close();
+}
+
 void ui::Screen::Tick() noexcept
 {
     if (IsOpen()) {

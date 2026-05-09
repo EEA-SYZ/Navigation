@@ -696,6 +696,10 @@ public:
      */
     bool IsOpen    ()                                  const noexcept;
     /**
+     * @fn 关闭窗口
+     */
+    void Close     ()                                        noexcept;
+    /**
      * @fn 刷新窗口
      * @note 务必在事件循环中调用。
      */

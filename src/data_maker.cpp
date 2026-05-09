@@ -1004,6 +1004,6 @@ DataMaker::~DataMaker() {
     }
 }
 
-int DataMaker::queryCurrentFlowInEdge(Edge *edge) {
+int DataMaker::queryCurrentFlowInEdge(const Edge *edge) {
     return 0;
 }

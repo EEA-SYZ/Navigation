@@ -11,7 +11,7 @@
         screen.draw(____); \
     }
 
-#define _ASSETS_ "../assets/"
+#define _ASSETS_ "assets/"
 
 /**
  * @brief 实现 UI 界面的布局和绘制。

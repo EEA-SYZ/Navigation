@@ -43,7 +43,7 @@ public:
      * @param edge 边
      * @return 边的当前流量
      */
-    int queryCurrentFlowInEdge(Edge *edge);
+    int queryCurrentFlowInEdge(const Edge *edge);
 
 private:
     Graph graph;

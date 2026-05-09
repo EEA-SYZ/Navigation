@@ -253,7 +253,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
     while (screen.IsOpen() && shower.IsOpen()) {
         screen.Tick();
         screen.Draw();
-        shower.Tick();
+        shower.Tick(startNode, endNode);
     }
 
     screen.FreeAll();

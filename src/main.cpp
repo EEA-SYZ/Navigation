@@ -5,211 +5,11 @@
 #include "ui.hpp"
 #include <iostream>
 #include <SFML/Graphics.hpp>
+#include "global.hpp"
 #include "data_maker.hpp"
 #include "data_manager.hpp"
 #include "shortest_path_algorithm.hpp"
-
-// 视口结构体
-struct Viewport {
-    double left;      // 左边界
-    double right;     // 右边界
-    double top;       // 上边界
-    double bottom;    // 下边界
-    int level;        // 当前层级
-    Viewport(double l = 0, double r = 10000, double t = 10000, double b = 0, int lv = 0)
-        : left(l), right(r), top(t), bottom(b), level(lv) {}
-    // 获取视口宽度
-    double getWidth() const { return right - left; }
-    // 获取视口高度
-    double getHeight() const { return top - bottom; }
-};
-
-void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
-    // 创建数据
-    DataMaker dataMaker(0, mapWidth, 0, mapHeight, nodeCount, edgeCount);
-    DataManager dataManager(dataMaker.getGraph());
-    ShortestPathAlgorithm shortestPathAlgorithm(dataMaker.getGraph());
-    shortestPathAlgorithm.setFlowQueryInterface([&dataMaker](const Edge *edge) {
-        return dataMaker.queryCurrentFlowInEdge(edge);
-    });
-    // 创建SFML窗口
-    sf::RenderWindow window(sf::VideoMode(1200, 800), L"地图可视化");
-    window.setFramerateLimit(60);
-    // 初始化视口（显示整个图区域）
-    Viewport viewport(0, window.getSize().x, window.getSize().y, 0, 0);
-    double oldWidth = window.getSize().x;
-    double oldHeight = window.getSize().y;
-    
-    // 拖拽相关变量
-    bool isDragging = false;
-    sf::Vector2i lastMousePos;
-
-    // 主循环
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                window.close();
-            }
-            // 滚轮缩放事件
-            if (event.type == sf::Event::MouseWheelScrolled) {
-                // 计算缩放中心（鼠标位置对应的图坐标）
-                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                
-                // 窗口坐标转图坐标（注意窗口Y轴是从顶部开始，图坐标Y轴是从底部开始）
-                double ratioX = static_cast<double>(mousePos.x) / window.getSize().x;
-                double ratioY = static_cast<double>(mousePos.y) / window.getSize().y;
-                double graphX = viewport.left + ratioX * viewport.getWidth();
-                double graphY = viewport.top - ratioY * viewport.getHeight(); // 关键修正：从top向下计算
-                
-                // 缩放因子（每次缩放10%）
-                const double zoomDelta = 0.1;
-                double zoomFactor = (event.mouseWheelScroll.delta > 0) ? (1.0 - zoomDelta) : (1.0 + zoomDelta);
-                
-                // 计算新的视口大小
-                double newWidth = viewport.getWidth() * zoomFactor;
-                double newHeight = viewport.getHeight() * zoomFactor;
-                
-                if (newWidth > 50 && newHeight > 50 && newWidth < mapWidth * 3.0 && newHeight < mapHeight * 3.0) {
-                    // 以鼠标位置为中心进行缩放（保持鼠标位置不变）
-                    viewport.left = graphX - ratioX * newWidth;
-                    viewport.right = viewport.left + newWidth;
-                    viewport.top = graphY + ratioY * newHeight;
-                    viewport.bottom = viewport.top - newHeight;
-                }
-            }
-            
-            // 窗口大小改变事件
-            if (event.type == sf::Event::Resized) {
-                sf::FloatRect visibleArea(0, 0, event.size.width, event.size.height);
-                window.setView(sf::View(visibleArea));
-
-                double newWidth = viewport.getWidth() * (window.getSize().x / static_cast<double>(oldWidth));
-                double newHeight = viewport.getHeight() * (window.getSize().y / static_cast<double>(oldHeight));
-                auto nleft = viewport.left - (newWidth - viewport.getWidth()) / 2;
-                auto nright = viewport.right + (newWidth - viewport.getWidth()) / 2;
-                auto ntop = viewport.top + (newHeight - viewport.getHeight()) / 2;
-                auto nbottom = viewport.bottom - (newHeight - viewport.getHeight()) / 2;
-                viewport.left = nleft;
-                viewport.right = nright;
-                viewport.top = ntop;
-                viewport.bottom = nbottom;
-                oldWidth = window.getSize().x;
-                oldHeight = window.getSize().y;
-            }
-            
-            // 鼠标按下事件
-            if (event.type == sf::Event::MouseButtonPressed) {
-                if (event.mouseButton.button == sf::Mouse::Left) {
-                    isDragging = true;
-                    lastMousePos = sf::Mouse::getPosition(window);
-                }
-            }
-            
-            // 鼠标移动事件（拖拽平移）
-            if (event.type == sf::Event::MouseMoved && isDragging) {
-                sf::Vector2i currentMousePos = sf::Mouse::getPosition(window);
-                
-                // 计算鼠标移动的偏移量
-                int deltaX = currentMousePos.x - lastMousePos.x;
-                int deltaY = currentMousePos.y - lastMousePos.y;
-                
-                // 将像素偏移转换为图坐标偏移
-                double graphDeltaX = -deltaX * (viewport.getWidth() / window.getSize().x);
-                double graphDeltaY = deltaY * (viewport.getHeight() / window.getSize().y);
-                
-                // 更新视口位置
-                viewport.left += graphDeltaX;
-                viewport.right += graphDeltaX;
-                viewport.top += graphDeltaY;
-                viewport.bottom += graphDeltaY;
-                
-                // 更新鼠标位置
-                lastMousePos = currentMousePos;
-            }
-            
-            // 鼠标释放事件
-            if (event.type == sf::Event::MouseButtonReleased) {
-                if (event.mouseButton.button == sf::Mouse::Left) {
-                    isDragging = false;
-                }
-            }
-        }
-        // 清空窗口
-        window.clear(sf::Color::White);
-        // 查询当前视口内的图数据
-        Graph visibleGraph = dataManager.queryDataInViewport(
-            static_cast<int>(viewport.left),
-            static_cast<int>(viewport.right),
-            static_cast<int>(viewport.top),
-            static_cast<int>(viewport.bottom),
-            viewport.level
-        );
-        // 计算坐标转换比例
-        double scaleX = window.getSize().x / viewport.getWidth();
-        double scaleY = window.getSize().y / viewport.getHeight();
-        // 计算线条和节点的尺寸（根据缩放比例自适应）
-        float lineThickness = std::max(1.5f, static_cast<float>(scaleX * 2));
-        float nodeRadius = std::max(6.0f, static_cast<float>(scaleX * 10));
-        float outlineThickness = std::max(2.0f, static_cast<float>(scaleX * 3));
-
-        // 绘制边（使用矩形条带模拟粗线）
-        for (const Edge* edge : visibleGraph.second) {
-            // 将图坐标转换为窗口坐标
-            sf::Vector2f start(
-                (edge->from->x - viewport.left) * scaleX,
-                (viewport.top - edge->from->y) * scaleY
-            );
-            sf::Vector2f end(
-                (edge->to->x - viewport.left) * scaleX,
-                (viewport.top - edge->to->y) * scaleY
-            );
-
-            // 计算边的方向和垂直方向
-            sf::Vector2f direction = end - start;
-            float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-            
-            // 计算边的起点和终点（缩进节点半径，避免边进入节点内部）
-            sf::Vector2f normalizedDir = direction / length;
-            sf::Vector2f adjustedStart = start + normalizedDir * nodeRadius;
-            sf::Vector2f adjustedEnd = end - normalizedDir * nodeRadius;
-            sf::Vector2f adjustedDirection = adjustedEnd - adjustedStart;
-            float adjustedLength = std::max(0.0f, std::sqrt(
-                adjustedDirection.x * adjustedDirection.x + 
-                adjustedDirection.y * adjustedDirection.y
-            ));
-
-            // 创建粗线条（使用矩形）
-            sf::RectangleShape lineShape(sf::Vector2f(adjustedLength, lineThickness));
-            lineShape.setFillColor(sf::Color(100, 100, 100)); // 灰色边
-            lineShape.setPosition(adjustedStart);
-            lineShape.setRotation(std::atan2(adjustedDirection.y, adjustedDirection.x) * 180 / PI);
-            lineShape.setOrigin(0, lineThickness / 2);
-
-            window.draw(lineShape);
-        }
-
-        // 绘制节点（空心圆球，后绘制以覆盖边）
-        for (const Node* node : visibleGraph.first) {
-            // 将图坐标转换为窗口坐标
-            sf::Vector2f position(
-                (node->x - viewport.left) * scaleX,
-                (viewport.top - node->y) * scaleY
-            );
-
-            // 创建空心节点圆
-            sf::CircleShape circle(nodeRadius);
-            circle.setFillColor(sf::Color::Transparent); // 空心，透明填充
-            circle.setOutlineColor(sf::Color(30, 80, 180)); // 深蓝色边框
-            circle.setOutlineThickness(outlineThickness); // 边框厚度（自适应缩放）
-            circle.setPosition(position - sf::Vector2f(nodeRadius, nodeRadius));
-
-            window.draw(circle);
-        }
-        // 显示绘制内容
-        window.display();
-    }
-}
+#include "Shower.hpp"
 
 int main() {
     // 创建窗口
@@ -331,7 +131,12 @@ int main() {
         screen.Tick();
         screen.Draw();
         if (isConfirm) {
-            showMap(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+            static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+            if (shower.IsOpen()) {
+                shower.Tick();
+            } else {
+                break;
+            }
         }
     }
     

@@ -1,6 +1,8 @@
 #ifndef __SHOWER_HPP__
 #define __SHOWER_HPP__
 
+#include <functional>
+
 // Shower类 - 封装地图显示功能
 class Shower {
 public:
@@ -85,9 +87,11 @@ public:
                     // 检测释放时是否在同一个节点上
                     sf::Vector2i releasePos = sf::Mouse::getPosition(*window);
                     const Node* releasedNode = getNodeAtPosition(releasePos);
-                    // 如果按下和释放都在同一个节点上，返回该节点
+                    // 如果按下和释放都在同一个节点上，调用回调函数
                     if (pressedNode != nullptr && releasedNode != nullptr && pressedNode == releasedNode) {
-                        result = pressedNode;
+                        if (nodeClickCallback) {
+                            nodeClickCallback(pressedNode);
+                        }
                     }
                     pressedNode = nullptr;
                 }
@@ -101,6 +105,14 @@ public:
     }
     
     bool IsOpen() const { return window->isOpen(); }
+    
+    /**
+     * @brief 设置节点点击回调函数
+     * @param callback 回调函数，参数为被点击的节点指针
+     */
+    void SetNodeClickCallback(std::function<void(const Node*)> callback) {
+        nodeClickCallback = std::move(callback);
+    }
     
 private:
     // 视口结构体
@@ -133,6 +145,7 @@ private:
     bool isDragging;
     sf::Vector2i lastMousePos;
     const Node* pressedNode = nullptr;
+    std::function<void(const Node*)> nodeClickCallback;  // 节点点击回调函数
     
     // 处理滚轮缩放
     void handleZoom(const sf::Event& event) 

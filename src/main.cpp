@@ -136,12 +136,16 @@ int main() {
     }
 
     screen.FreeAll();
+    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
     auto btn = new ui::Button;{
         btn->AddTo(ver);
         btn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         btn->SetCaption("计算最短路");
     }
-    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+
+    shower.SetNodeClickCallback([&](const Node* node) {
+        ;
+    });
     
     while (screen.IsOpen() && shower.IsOpen()) {
         screen.Tick();

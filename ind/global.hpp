@@ -103,5 +103,6 @@ private:
     ~Tag();
 };
 
+const double PI = std::acos(-1.0);
 
 #endif

@@ -48,31 +48,45 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
             if (event.type == sf::Event::MouseWheelScrolled) {
                 // 计算缩放中心（鼠标位置对应的图坐标）
                 sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                double graphX = viewport.left + (static_cast<double>(mousePos.x) / window.getSize().x) * viewport.getWidth();
-                double graphY = viewport.bottom + (static_cast<double>(mousePos.y) / window.getSize().y) * viewport.getHeight();
+                
+                // 窗口坐标转图坐标（注意窗口Y轴是从顶部开始，图坐标Y轴是从底部开始）
+                double ratioX = static_cast<double>(mousePos.x) / window.getSize().x;
+                double ratioY = static_cast<double>(mousePos.y) / window.getSize().y;
+                double graphX = viewport.left + ratioX * viewport.getWidth();
+                double graphY = viewport.top - ratioY * viewport.getHeight(); // 关键修正：从top向下计算
+                
                 // 缩放因子（每次缩放10%）
                 const double zoomDelta = 0.1;
                 double zoomFactor = (event.mouseWheelScroll.delta > 0) ? (1.0 - zoomDelta) : (1.0 + zoomDelta);
+                
                 // 计算新的视口大小
                 double newWidth = viewport.getWidth() * zoomFactor;
                 double newHeight = viewport.getHeight() * zoomFactor;
+                
                 // 限制视口最小和最大尺寸
                 const double minSize = 100;
                 const double maxSize = std::max(mapWidth, mapHeight) * 2;
                 newWidth = std::max(minSize, std::min(maxSize, newWidth));
                 newHeight = std::max(minSize, std::min(maxSize, newHeight));
-                // 以鼠标位置为中心进行缩放
-                double ratioX = (graphX - viewport.left) / viewport.getWidth();
-                double ratioY = (graphY - viewport.bottom) / viewport.getHeight();
+                
+                // 以鼠标位置为中心进行缩放（保持鼠标位置不变）
                 viewport.left = graphX - ratioX * newWidth;
                 viewport.right = viewport.left + newWidth;
-                viewport.bottom = graphY - ratioY * newHeight;
-                viewport.top = viewport.bottom + newHeight;
+                viewport.top = graphY + ratioY * newHeight;
+                viewport.bottom = viewport.top - newHeight;
+                
                 // 确保视口边界不超出图的范围
                 viewport.left = std::max(0.0, viewport.left);
                 viewport.right = std::min(static_cast<double>(mapWidth), viewport.right);
                 viewport.bottom = std::max(0.0, viewport.bottom);
                 viewport.top = std::min(static_cast<double>(mapHeight), viewport.top);
+            }
+            
+            // 窗口大小改变事件
+            if (event.type == sf::Event::Resized) {
+                // 调整窗口视图以适应新大小
+                sf::FloatRect visibleArea(0, 0, event.size.width, event.size.height);
+                window.setView(sf::View(visibleArea));
             }
         }
         // 清空窗口
@@ -88,7 +102,12 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
         // 计算坐标转换比例
         double scaleX = window.getSize().x / viewport.getWidth();
         double scaleY = window.getSize().y / viewport.getHeight();
-        // 绘制边
+        // 计算线条和节点的尺寸（根据缩放比例自适应）
+        float lineThickness = std::max(1.5f, static_cast<float>(scaleX * 2));
+        float nodeRadius = std::max(6.0f, static_cast<float>(scaleX * 10));
+        float outlineThickness = std::max(2.0f, static_cast<float>(scaleX * 3));
+
+        // 绘制边（使用矩形条带模拟粗线）
         for (const Edge* edge : visibleGraph.second) {
             // 将图坐标转换为窗口坐标
             sf::Vector2f start(
@@ -99,24 +118,46 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
                 (edge->to->x - viewport.left) * scaleX,
                 (viewport.top - edge->to->y) * scaleY
             );
-            // 创建边的线条
-            sf::Vertex line[] = {
-                sf::Vertex(start, sf::Color::Black),
-                sf::Vertex(end, sf::Color::Black)
-            };
-            window.draw(line, 2, sf::Lines);
+
+            // 计算边的方向和垂直方向
+            sf::Vector2f direction = end - start;
+            float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+            
+            // 计算边的起点和终点（缩进节点半径，避免边进入节点内部）
+            sf::Vector2f normalizedDir = direction / length;
+            sf::Vector2f adjustedStart = start + normalizedDir * nodeRadius;
+            sf::Vector2f adjustedEnd = end - normalizedDir * nodeRadius;
+            sf::Vector2f adjustedDirection = adjustedEnd - adjustedStart;
+            float adjustedLength = std::max(0.0f, std::sqrt(
+                adjustedDirection.x * adjustedDirection.x + 
+                adjustedDirection.y * adjustedDirection.y
+            ));
+
+            // 创建粗线条（使用矩形）
+            sf::RectangleShape lineShape(sf::Vector2f(adjustedLength, lineThickness));
+            lineShape.setFillColor(sf::Color(100, 100, 100)); // 灰色边
+            lineShape.setPosition(adjustedStart);
+            lineShape.setRotation(std::atan2(adjustedDirection.y, adjustedDirection.x) * 180 / PI);
+            lineShape.setOrigin(0, lineThickness / 2);
+
+            window.draw(lineShape);
         }
-        // 绘制节点
+
+        // 绘制节点（空心圆球，后绘制以覆盖边）
         for (const Node* node : visibleGraph.first) {
             // 将图坐标转换为窗口坐标
             sf::Vector2f position(
                 (node->x - viewport.left) * scaleX,
                 (viewport.top - node->y) * scaleY
             );
-            // 创建节点圆
-            sf::CircleShape circle(3);
-            circle.setFillColor(sf::Color::Blue);
-            circle.setPosition(position - sf::Vector2f(3, 3));
+
+            // 创建空心节点圆
+            sf::CircleShape circle(nodeRadius);
+            circle.setFillColor(sf::Color::Transparent); // 空心，透明填充
+            circle.setOutlineColor(sf::Color(30, 80, 180)); // 深蓝色边框
+            circle.setOutlineThickness(outlineThickness); // 边框厚度（自适应缩放）
+            circle.setPosition(position - sf::Vector2f(nodeRadius, nodeRadius));
+
             window.draw(circle);
         }
         // 显示绘制内容

@@ -43,6 +43,7 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
     // 拖拽相关变量
     bool isDragging = false;
     sf::Vector2i lastMousePos;
+
     // 主循环
     while (window.isOpen()) {
         sf::Event event;
@@ -69,25 +70,13 @@ void showMap(int mapWidth, int mapHeight, int nodeCount, int edgeCount) {
                 double newWidth = viewport.getWidth() * zoomFactor;
                 double newHeight = viewport.getHeight() * zoomFactor;
                 
-                // 限制视口最小和最大尺寸
-                double minSizeX = window.getSize().x * 0.2;
-                double minSizeY = window.getSize().y * 0.2;
-                double maxSizeX = window.getSize().x * 2;
-                double maxSizeY = window.getSize().y * 2;
-                newWidth = std::max(minSizeX, std::min(maxSizeX, newWidth));
-                newHeight = std::max(minSizeY, std::min(maxSizeY, newHeight));
-                
-                // 以鼠标位置为中心进行缩放（保持鼠标位置不变）
-                viewport.left = graphX - ratioX * newWidth;
-                viewport.right = viewport.left + newWidth;
-                viewport.top = graphY + ratioY * newHeight;
-                viewport.bottom = viewport.top - newHeight;
-                
-                // 确保视口边界不超出图的范围
-                viewport.left = std::max(-static_cast<double>(window.getSize().x / 2), viewport.left);
-                viewport.right = std::min(static_cast<double>(mapWidth), viewport.right);
-                viewport.bottom = std::max(-static_cast<double>(window.getSize().y / 2), viewport.bottom);
-                viewport.top = std::min(static_cast<double>(mapHeight), viewport.top);
+                if (newWidth > 50 && newHeight > 50 && newWidth < mapWidth * 3.0 && newHeight < mapHeight * 3.0) {
+                    // 以鼠标位置为中心进行缩放（保持鼠标位置不变）
+                    viewport.left = graphX - ratioX * newWidth;
+                    viewport.right = viewport.left + newWidth;
+                    viewport.top = graphY + ratioY * newHeight;
+                    viewport.bottom = viewport.top - newHeight;
+                }
             }
             
             // 窗口大小改变事件
@@ -342,11 +331,9 @@ int main() {
         screen.Tick();
         screen.Draw();
         if (isConfirm) {
-            screen.Close();
+            showMap(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
         }
     }
-    
-    showMap(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
     
     return 0;
 }

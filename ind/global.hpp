@@ -99,8 +99,8 @@ public:
     Tag(Tag &&) = delete;
     Tag &operator=(Tag &&) = delete;
 private:
-    Tag();
-    ~Tag();
+    Tag() = default;
+    ~Tag() = default;
 };
 
 const double PI = std::acos(-1.0);

@@ -11,10 +11,8 @@
 #include "shortest_path_algorithm.hpp"
 #include "Shower.hpp"
 
-int main() {
-    // 创建窗口
-    ui::Screen screen(1200, 800, "地图参数设置");
-
+void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCountInt, int &edgeCountInt)
+{
     // 创建主布局容器
     ui::VerticalBox* ver = new ui::VerticalBox;{
         ver->AddTo(&screen);
@@ -87,7 +85,7 @@ int main() {
         edgeCount->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
         edgeCount->SetSpecialCharacters(ui::InputBox::NUMBER);
         edgeCount->SetLengthLimit(6);
-        edgeCount->SetText("25000");
+        edgeCount->SetText("18000");
     }
 
     // 确认按钮
@@ -104,10 +102,6 @@ int main() {
     }
 
     bool isConfirm = false;
-    int mapWidthInt = 0;
-    int mapHeightInt = 0;
-    int nodeCountInt = 0;
-    int edgeCountInt = 0;
     // 设置按钮回调
     confirmBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
         if (
@@ -136,15 +130,124 @@ int main() {
     }
 
     screen.FreeAll();
-    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
-    auto btn = new ui::Button;{
-        btn->AddTo(ver);
-        btn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
-        btn->SetCaption("计算最短路");
+}
+
+void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCountInt, int edgeCountInt)
+{
+    // 初始化起点和终点
+    const Node* startNode = nullptr;
+    const Node* endNode = nullptr;
+    
+    // 创建顶部信息栏布局
+    auto* topBar = new ui::VerticalBox;{
+        topBar->AddTo(&screen);
+        topBar->SetVPreset(ui::Control::Preset::FILL_FROM_CENTER);
+        topBar->SetHPreset(ui::Control::Preset::FILL_FROM_CENTER);
+        topBar->SetVSize(50);
     }
 
+    // 创建标签显示起点和终点
+    ui::Label* startLabel = new ui::Label("起点: 未选择");{
+        startLabel->AddTo(topBar);
+        startLabel->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+    }
+    ui::Label* endLabel = new ui::Label("终点: 未选择");{
+        endLabel->AddTo(topBar);
+        endLabel->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+    }
+    
+    // 创建按钮容器
+    ui::HorizontalBox* btnBox = new ui::HorizontalBox;{
+        btnBox->AddTo(topBar);
+        btnBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        btnBox->SetGap(15);
+    }
+    
+    // 计算距离最短路按钮
+    ui::Button* distanceBtn = new ui::Button;{
+        distanceBtn->AddTo(btnBox);
+        distanceBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        distanceBtn->SetCaption("距离最短");
+        distanceBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            // 空实现，后续补充
+        });
+    }
+    
+    // 计算时间最短路按钮
+    ui::Button* timeBtn = new ui::Button;{
+        timeBtn->AddTo(btnBox);
+        timeBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        timeBtn->SetCaption("时间最短");
+        timeBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            // 空实现，后续补充
+        });
+    }
+    
+    // 交换起点终点按钮
+    ui::Button* swapBtn = new ui::Button;{
+        swapBtn->AddTo(btnBox);
+        swapBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        swapBtn->SetCaption("交换");
+        swapBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            std::swap(startNode, endNode);
+            // 更新标签显示
+            if (startNode) {
+                startLabel->SetContent("起点: (" + std::to_string(static_cast<int>(startNode->x)) + ", " + std::to_string(static_cast<int>(startNode->y)) + ")");
+            } else {
+                startLabel->SetContent("起点: 未选择");
+            }
+            if (endNode) {
+                endLabel->SetContent("终点: (" + std::to_string(static_cast<int>(endNode->x)) + ", " + std::to_string(static_cast<int>(endNode->y)) + ")");
+            } else {
+                endLabel->SetContent("终点: 未选择");
+            }
+        });
+    }
+    
+    // 取消选中按钮
+    ui::Button* cancelBtn = new ui::Button;{
+        cancelBtn->AddTo(btnBox);
+        cancelBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        cancelBtn->SetCaption("取消选中");
+        cancelBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            startNode = nullptr;
+            endNode = nullptr;
+            startLabel->SetContent("起点: 未选择");
+            endLabel->SetContent("终点: 未选择");
+        });
+    }
+
+    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+    
+    // 设置节点点击回调
     shower.SetNodeClickCallback([&](const Node* node) {
-        ;
+        // 如果点击的是当前选中的起点，则取消起点选中
+        if (startNode == node) {
+            startNode = nullptr;
+            startLabel->SetContent("起点: 未选择");
+        }
+        // 如果点击的是当前选中的终点，则取消终点选中
+        else if (endNode == node) {
+            endNode = nullptr;
+            endLabel->SetContent("终点: 未选择");
+        }
+        // 如果起点未选中，则设置为起点
+        else if (!startNode) {
+            startNode = node;
+            startLabel->SetContent("起点: (" + std::to_string(static_cast<int>(node->x)) + ", " + std::to_string(static_cast<int>(node->y)) + ")");
+        }
+        // 如果终点未选中，则设置为终点
+        else if (!endNode) {
+            endNode = node;
+            endLabel->SetContent("终点: (" + std::to_string(static_cast<int>(node->x)) + ", " + std::to_string(static_cast<int>(node->y)) + ")");
+        }
+        // 如果都已选中，设置为新起点，清除终点
+        else {
+            startNode = node;
+            startLabel->SetContent("起点: (" + std::to_string(static_cast<int>(node->x)) + ", " + std::to_string(static_cast<int>(node->y)) + ")");
+            endNode = nullptr;
+            endLabel->SetContent("终点: 未选择");
+        }
     });
     
     while (screen.IsOpen() && shower.IsOpen()) {
@@ -152,6 +255,20 @@ int main() {
         screen.Draw();
         shower.Tick();
     }
+
+    screen.FreeAll();
+}
+
+int main() {
+    // 创建窗口
+    ui::Screen screen(1200, 800, "地图参数设置");
+
+    int mapWidthInt = 0;
+    int mapHeightInt = 0;
+    int nodeCountInt = 0;
+    int edgeCountInt = 0;
+    create(screen, mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+    showing(screen, mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
     
     return 0;
 }

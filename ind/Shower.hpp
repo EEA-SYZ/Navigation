@@ -64,8 +64,6 @@ public:
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     isDragging = true;
                     lastMousePos = sf::Mouse::getPosition(*window);
-                    // 记录按下时的节点
-                    pressedNode = getNodeAtPosition(lastMousePos);
                 }
             }
             // 鼠标移动事件（拖拽平移）
@@ -76,16 +74,6 @@ public:
             if (event.type == sf::Event::MouseButtonReleased) {
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     isDragging = false;
-                    // 检测释放时是否在同一个节点上
-                    sf::Vector2i releasePos = sf::Mouse::getPosition(*window);
-                    const Node* releasedNode = getNodeAtPosition(releasePos);
-                    // 如果按下和释放都在同一个节点上，记录为点击
-                    if (pressedNode != nullptr && releasedNode != nullptr && pressedNode == releasedNode) {
-                        clickedNode = pressedNode;
-                    } else {
-                        clickedNode = nullptr;
-                    }
-                    pressedNode = nullptr;
                 }
             }
         }
@@ -97,17 +85,6 @@ public:
     }
     
     bool IsOpen() const { return window->isOpen(); }
-    
-    /**
-     * @brief 获取最近一次点击的节点
-     * @return 点击的节点指针，如果没有点击则返回 nullptr
-     */
-    const Node* GetClickedNode() const { return clickedNode; }
-    
-    /**
-     * @brief 清除点击状态（调用后 GetClickedNode 将返回 nullptr）
-     */
-    void ClearClickedNode() { clickedNode = nullptr; }
     
 private:
     // 视口结构体
@@ -137,10 +114,6 @@ private:
     // 拖拽相关
     bool isDragging;
     sf::Vector2i lastMousePos;
-    
-    // 点击检测相关
-    const Node* pressedNode = nullptr;   // 鼠标按下时的节点
-    const Node* clickedNode = nullptr;   // 最近一次点击的节点
     
     // 处理滚轮缩放
     void handleZoom(const sf::Event& event) 
@@ -203,41 +176,6 @@ private:
         viewport.bottom += graphDeltaY;
         
         lastMousePos = currentMousePos;
-    }
-    
-    // 获取指定窗口位置下的节点
-    const Node* getNodeAtPosition(const sf::Vector2i& windowPos) const
-    {
-        double scaleX = window->getSize().x / viewport.getWidth();
-        double scaleY = window->getSize().y / viewport.getHeight();
-        float nodeRadius = std::max(6.0f, static_cast<float>(scaleX * 10));
-        
-        // 将窗口坐标转换为图坐标
-        double graphX = viewport.left + (static_cast<double>(windowPos.x) / window->getSize().x) * viewport.getWidth();
-        double graphY = viewport.top - (static_cast<double>(windowPos.y) / window->getSize().y) * viewport.getHeight();
-        
-        // 查询视口内的节点
-        Graph visibleGraph = dataManager->queryDataInViewport(
-            static_cast<int>(viewport.left),
-            static_cast<int>(viewport.right),
-            static_cast<int>(viewport.top),
-            static_cast<int>(viewport.bottom),
-            viewport.level
-        );
-        
-        // 检查是否有节点在鼠标位置附近
-        for (const Node* node : visibleGraph.first) {
-            double dx = node->x - graphX;
-            double dy = node->y - graphY;
-            double distance = std::sqrt(dx * dx + dy * dy);
-            
-            // 如果距离小于节点半径，则认为点击了该节点
-            if (distance * scaleX <= nodeRadius) {
-                return node;
-            }
-        }
-        
-        return nullptr;
     }
     
     // 绘制地图

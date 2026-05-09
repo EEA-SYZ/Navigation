@@ -134,6 +134,8 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
 
 void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCountInt, int edgeCountInt)
 {
+    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+    Graph path;
     // 初始化起点和终点
     const Node* startNode = nullptr;
     const Node* endNode = nullptr;
@@ -162,14 +164,58 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         btnBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         btnBox->SetGap(15);
     }
-    
+
+    // 清除路径标记函数
+    auto clearPathTags = [&]() {
+        for (const Node* node : path.first) {
+            Tag::instance()[node]["onpath"] = "0";
+        }
+        for (const Edge* edge : path.second) {
+            Tag::instance()[edge]["onpath"] = "0";
+        }
+    };
+
+    // 清除起点终点标记函数
+    auto clearStartEndTags = [&]() {
+        if (startNode) {
+            Tag::instance()[startNode].erase("s");
+        }
+        if (endNode) {
+            Tag::instance()[endNode].erase("e");
+        }
+    };
+
+    // 更新起点终点标记
+    auto updateStartEndTags = [&]() {
+        if (startNode) {
+            Tag::instance()[startNode]["s"] = "1";
+        }
+        if (endNode) {
+            Tag::instance()[endNode]["e"] = "1";
+        }
+    };
+
     // 计算距离最短路按钮
     ui::Button* distanceBtn = new ui::Button;{
         distanceBtn->AddTo(btnBox);
         distanceBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         distanceBtn->SetCaption("距离最短");
         distanceBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
-            // 空实现，后续补充
+            if (startNode && endNode) {
+                // 清除之前的路径标记
+                clearPathTags();
+                
+                // 查询最短路径
+                path = shower.queryShortestPath(startNode, endNode);
+                
+                // 设置路径标记
+                for (const Node* node : path.first) {
+                    Tag::instance()[node]["onpath"] = "1";
+                }
+                for (const Edge* edge : path.second) {
+                    Tag::instance()[edge]["onpath"] = "1";
+                }
+            }
         });
     }
     
@@ -179,7 +225,21 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         timeBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         timeBtn->SetCaption("时间最短");
         timeBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
-            // 空实现，后续补充
+            if (startNode && endNode) {
+                // 清除之前的路径标记
+                clearPathTags();
+                
+                // 查询最短时间路径
+                path = shower.queryShortestTimePath(startNode, endNode);
+                
+                // 设置路径标记
+                for (const Node* node : path.first) {
+                    Tag::instance()[node]["onpath"] = "1";
+                }
+                for (const Edge* edge : path.second) {
+                    Tag::instance()[edge]["onpath"] = "1";
+                }
+            }
         });
     }
     
@@ -189,7 +249,12 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         swapBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         swapBtn->SetCaption("交换");
         swapBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            // 清除之前的起点终点标记
+            clearStartEndTags();
+            
+            // 交换
             std::swap(startNode, endNode);
+            
             // 更新标签显示
             if (startNode) {
                 startLabel->SetContent("起点: (" + std::to_string(static_cast<int>(startNode->x)) + ", " + std::to_string(static_cast<int>(startNode->y)) + ")");
@@ -201,6 +266,9 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
             } else {
                 endLabel->SetContent("终点: 未选择");
             }
+            
+            // 设置新的起点终点标记
+            updateStartEndTags();
         });
     }
     
@@ -210,40 +278,50 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         cancelBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         cancelBtn->SetCaption("取消选中");
         cancelBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            // 清除起点终点标记
+            clearStartEndTags();
+            
             startNode = nullptr;
             endNode = nullptr;
             startLabel->SetContent("起点: 未选择");
             endLabel->SetContent("终点: 未选择");
         });
     }
-
-    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
     
     // 设置节点点击回调
     shower.SetNodeClickCallback([&](const Node* node) {
         // 如果点击的是当前选中的起点，则取消起点选中
         if (startNode == node) {
+            Tag::instance()[startNode].erase("s");
             startNode = nullptr;
             startLabel->SetContent("起点: 未选择");
         }
         // 如果点击的是当前选中的终点，则取消终点选中
         else if (endNode == node) {
+            Tag::instance()[endNode].erase("e");
             endNode = nullptr;
             endLabel->SetContent("终点: 未选择");
         }
         // 如果起点未选中，则设置为起点
         else if (!startNode) {
             startNode = node;
+            Tag::instance()[startNode]["s"] = "1";
             startLabel->SetContent("起点: (" + std::to_string(static_cast<int>(node->x)) + ", " + std::to_string(static_cast<int>(node->y)) + ")");
         }
         // 如果终点未选中，则设置为终点
         else if (!endNode) {
             endNode = node;
+            Tag::instance()[endNode]["e"] = "1";
             endLabel->SetContent("终点: (" + std::to_string(static_cast<int>(node->x)) + ", " + std::to_string(static_cast<int>(node->y)) + ")");
         }
         // 如果都已选中，设置为新起点，清除终点
         else {
+            // 清除旧起点标记
+            Tag::instance()[startNode].erase("s");
+            Tag::instance()[endNode].erase("e");
+            
             startNode = node;
+            Tag::instance()[startNode]["s"] = "1";
             startLabel->SetContent("起点: (" + std::to_string(static_cast<int>(node->x)) + ", " + std::to_string(static_cast<int>(node->y)) + ")");
             endNode = nullptr;
             endLabel->SetContent("终点: 未选择");
@@ -253,7 +331,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
     while (screen.IsOpen() && shower.IsOpen()) {
         screen.Tick();
         screen.Draw();
-        shower.Tick(startNode, endNode);
+        shower.Tick();
     }
 
     screen.FreeAll();

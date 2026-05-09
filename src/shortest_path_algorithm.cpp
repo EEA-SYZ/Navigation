@@ -136,89 +136,49 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
     return false; // 未找到路径
 }
 
-VPath ShortestPathAlgorithm::reconstructNodePath(const Node *start, const Node *end,
-                                                 const std::unordered_map<const Node*, const Edge*> &cameFrom) {
-    VPath path;
-    const Node *current = end;
+Graph ShortestPathAlgorithm::reconstructPath(const Node *start, const Node *end,
+                                             const std::unordered_map<const Node*, const Edge*> &cameFrom) {
+    Graph path;
+    std::set<const Node*> nodes;
+    std::set<const Edge*> edges;
 
     if (start == end) {
-        path.push_back(start);
-        return path;
+        nodes.insert(start);
+        return std::make_pair(nodes, edges);
     }
 
+    const Node *current = end;
     while (current != nullptr && current != start) {
-        path.push_back(current);
+        nodes.insert(current);
         auto it = cameFrom.find(current);
         if (it == cameFrom.end()) {
             return {}; // 路径不完整
         }
+        edges.insert(it->second);
         current = it->second->from;
     }
     
     if (current == start) {
-        path.push_back(start);
-        std::reverse(path.begin(), path.end());
+        nodes.insert(start);
     } else {
         return {}; // 路径不完整
     }
 
-    return path;
+    return std::make_pair(nodes, edges);
 }
 
-EPath ShortestPathAlgorithm::reconstructEdgePath(const Node *start, const Node *end,
-                                                 const std::unordered_map<const Node*, const Edge*> &cameFrom) {
-    EPath path;
-    const Node *current = end;
-
-    if (start == end) {
-        return path;
-    }
-
-    while (current != nullptr && current != start) {
-        auto it = cameFrom.find(current);
-        if (it == cameFrom.end()) {
-            return {}; // 路径不完整
-        }
-        path.push_back(it->second);
-        current = it->second->from;
-    }
-    
-    if (current != start) {
-        return {}; // 路径不完整
-    }
-
-    std::reverse(path.begin(), path.end());
-    return path;
-}
-
-VPath ShortestPathAlgorithm::queryNodePath(const Node *start, const Node *end) {
+Graph ShortestPathAlgorithm::queryShortestPath(const Node *start, const Node *end) {
     std::unordered_map<const Node*, const Edge*> cameFrom;
     if (aStarDistance(start, end, cameFrom)) {
-        return reconstructNodePath(start, end, cameFrom);
+        return reconstructPath(start, end, cameFrom);
     }
     return {};
 }
 
-EPath ShortestPathAlgorithm::queryEdgePath(const Node *start, const Node *end) {
-    std::unordered_map<const Node*, const Edge*> cameFrom;
-    if (aStarDistance(start, end, cameFrom)) {
-        return reconstructEdgePath(start, end, cameFrom);
-    }
-    return {};
-}
-
-VPath ShortestPathAlgorithm::queryNodeTimePath(const Node *start, const Node *end) {
+Graph ShortestPathAlgorithm::queryShortestTimePath(const Node *start, const Node *end) {
     std::unordered_map<const Node*, const Edge*> cameFrom;
     if (aStarTime(start, end, cameFrom)) {
-        return reconstructNodePath(start, end, cameFrom);
-    }
-    return {};
-}
-
-EPath ShortestPathAlgorithm::queryEdgeTimePath(const Node *start, const Node *end) {
-    std::unordered_map<const Node*, const Edge*> cameFrom;
-    if (aStarTime(start, end, cameFrom)) {
-        return reconstructEdgePath(start, end, cameFrom);
+        return reconstructPath(start, end, cameFrom);
     }
     return {};
 }

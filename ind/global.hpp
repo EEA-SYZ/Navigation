@@ -55,8 +55,6 @@ struct Edge {
 };
 
 using Graph = std::pair<std::set<const Node *>, std::set<const Edge *>>;
-using VPath = std::vector<const Node *>;
-using EPath = std::vector<const Edge *>;
 
 /**
  * @brief 标签结构体

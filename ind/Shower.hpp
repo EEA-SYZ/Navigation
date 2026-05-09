@@ -30,6 +30,13 @@ public:
         oldWindowWidth = window->getSize().x;
         oldWindowHeight = window->getSize().y;
     }
+
+    Graph queryShortestPath(const Node *start, const Node *end) {
+        return shortestPathAlgorithm->queryShortestPath(start, end);
+    }
+    Graph queryShortestTimePath(const Node *start, const Node *end) {
+        return shortestPathAlgorithm->queryShortestTimePath(start, end);
+    }
     
     ~Shower() 
     {
@@ -42,11 +49,9 @@ public:
     
     /**
      * @brief 执行一次主循环
-     * @param start 起点节点指针
-     * @param end 终点节点指针
      * @return 如果点击了节点返回节点指针；如果窗口关闭返回 nullptr；否则返回 nullptr
      */
-    const Node* Tick(const Node* start, const Node* end) 
+    const Node* Tick() 
     {
         if (!window->isOpen()) {
             return nullptr;
@@ -100,8 +105,8 @@ public:
             }
         }
         
-        // 绘制地图（传入起点和终点）
-        drawMap(start, end);
+        // 绘制地图
+        drawMap();
         
         return result;
     }
@@ -233,7 +238,7 @@ private:
     }
     
     // 绘制地图
-    void drawMap(const Node* startNode, const Node* endNode) 
+    void drawMap() 
     {
         window->clear(sf::Color::White);
         
@@ -277,7 +282,12 @@ private:
             ));
 
             sf::RectangleShape lineShape(sf::Vector2f(adjustedLength, lineThickness));
-            lineShape.setFillColor(sf::Color(100, 100, 100));
+            // 检查是否在路径上
+            if (Tag::instance()[edge]["onpath"] == "1") {
+                lineShape.setFillColor(sf::Color(255, 0, 0));  // 红色表示路径
+            } else {
+                lineShape.setFillColor(sf::Color(100, 100, 100));
+            }
             lineShape.setPosition(adjustedStart);
             lineShape.setRotation(std::atan2(adjustedDirection.y, adjustedDirection.x) * 180 / PI);
             lineShape.setOrigin(0, lineThickness / 2);
@@ -285,56 +295,41 @@ private:
             window->draw(lineShape);
         }
 
-        // 绘制普通节点
+        // 绘制节点
         for (const Node* node : currentGraph.first) {
-            // 跳过起点和终点，稍后单独绘制
-            if (node == startNode || node == endNode) {
-                continue;
-            }
-            
             sf::Vector2f position(
                 (node->x - viewport.left) * scaleX,
                 (viewport.top - node->y) * scaleY
             );
 
             sf::CircleShape circle(nodeRadius);
-            circle.setFillColor(sf::Color::Transparent);
-            circle.setOutlineColor(sf::Color(30, 80, 180));
-            circle.setOutlineThickness(outlineThickness);
+            
+            // 检查是否是起点
+            if (Tag::instance()[node]["s"] == "1") {
+                circle.setFillColor(sf::Color(0, 100, 0));  // 深绿色实心
+                circle.setOutlineColor(sf::Color(0, 60, 0));  // 深绿色边框
+                circle.setOutlineThickness(2);
+            }
+            // 检查是否是终点
+            else if (Tag::instance()[node]["e"] == "1") {
+                circle.setFillColor(sf::Color(139, 0, 0));  // 深红色实心
+                circle.setOutlineColor(sf::Color(90, 0, 0));  // 深红色边框
+                circle.setOutlineThickness(2);
+            }
+            // 检查是否在路径上
+            else if (Tag::instance()[node]["onpath"] == "1") {
+                circle.setFillColor(sf::Color(255, 215, 0));  // 金色表示路径上的节点
+                circle.setOutlineColor(sf::Color(218, 165, 32));
+                circle.setOutlineThickness(2);
+            }
+            // 普通节点
+            else {
+                circle.setFillColor(sf::Color::Transparent);
+                circle.setOutlineColor(sf::Color(30, 80, 180));
+                circle.setOutlineThickness(outlineThickness);
+            }
+            
             circle.setPosition(position - sf::Vector2f(nodeRadius, nodeRadius));
-
-            window->draw(circle);
-        }
-        
-        // 绘制起点（深绿色实心圆）
-        if (startNode) {
-            sf::Vector2f position(
-                (startNode->x - viewport.left) * scaleX,
-                (viewport.top - startNode->y) * scaleY
-            );
-            
-            sf::CircleShape circle(nodeRadius);
-            circle.setFillColor(sf::Color(0, 100, 0));  // 深绿色实心
-            circle.setOutlineColor(sf::Color(0, 60, 0));  // 深绿色边框
-            circle.setOutlineThickness(2);
-            circle.setPosition(position - sf::Vector2f(nodeRadius, nodeRadius));
-            
-            window->draw(circle);
-        }
-        
-        // 绘制终点（深红色实心圆）
-        if (endNode) {
-            sf::Vector2f position(
-                (endNode->x - viewport.left) * scaleX,
-                (viewport.top - endNode->y) * scaleY
-            );
-            
-            sf::CircleShape circle(nodeRadius);
-            circle.setFillColor(sf::Color(139, 0, 0));  // 深红色实心
-            circle.setOutlineColor(sf::Color(90, 0, 0));  // 深红色边框
-            circle.setOutlineThickness(2);
-            circle.setPosition(position - sf::Vector2f(nodeRadius, nodeRadius));
-            
             window->draw(circle);
         }
         

@@ -12,33 +12,19 @@ public:
     ShortestPathAlgorithm(const Graph &graph);
     ~ShortestPathAlgorithm();
     /**
-     * @brief 查询节点路径（距离最短）
+     * @brief 查询最短路径（距离最短）
      * @param start 起始节点
      * @param end 结束节点
-     * @return VPath 节点路径
+     * @return Graph 路径图，包含路径上的节点集合和边集合
      */
-    VPath queryNodePath(const Node *start, const Node *end);
+    Graph queryShortestPath(const Node *start, const Node *end);
     /**
-     * @brief 查询边路径（距离最短）
+     * @brief 查询最短时间路径（时间最短）
      * @param start 起始节点
      * @param end 结束节点
-     * @return EPath 边路径
+     * @return Graph 路径图，包含路径上的节点集合和边集合
      */
-    EPath queryEdgePath(const Node *start, const Node *end);
-    /**
-     * @brief 查询节点时间路径（时间最短）
-     * @param start 起始节点
-     * @param end 结束节点
-     * @return VPath 节点时间路径
-     */
-    VPath queryNodeTimePath(const Node *start, const Node *end);
-    /**
-     * @brief 查询边时间路径（时间最短）
-     * @param start 起始节点
-     * @param end 结束节点
-     * @return EPath 边时间路径
-     */
-    EPath queryEdgeTimePath(const Node *start, const Node *end);
+    Graph queryShortestTimePath(const Node *start, const Node *end);
 
     // 设置流量查询接口（用于获取边的当前流量）
     void setFlowQueryInterface(std::function<int(const Edge*)> flowQueryFunc) {
@@ -96,24 +82,14 @@ private:
                    std::unordered_map<const Node*, const Edge*> &cameFrom);
 
     /**
-     * @brief 从cameFrom中提取节点路径
+     * @brief 从cameFrom中提取路径（同时包含节点和边）
      * @param start 起始节点
      * @param end 结束节点
      * @param cameFrom 路径记录
-     * @return 节点路径
+     * @return Graph 路径图
      */
-    VPath reconstructNodePath(const Node *start, const Node *end,
-                              const std::unordered_map<const Node*, const Edge*> &cameFrom);
-
-    /**
-     * @brief 从cameFrom中提取边路径
-     * @param start 起始节点
-     * @param end 结束节点
-     * @param cameFrom 路径记录
-     * @return 边路径
-     */
-    EPath reconstructEdgePath(const Node *start, const Node *end,
-                              const std::unordered_map<const Node*, const Edge*> &cameFrom);
+    Graph reconstructPath(const Node *start, const Node *end,
+                          const std::unordered_map<const Node*, const Edge*> &cameFrom);
 
     /**
      * @brief 获取边的当前流量

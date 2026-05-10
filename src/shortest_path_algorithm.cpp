@@ -11,15 +11,7 @@ ShortestPathAlgorithm::ShortestPathAlgorithm(const Graph &graph)
 ShortestPathAlgorithm::~ShortestPathAlgorithm() {}
 
 double ShortestPathAlgorithm::euclideanDistance(const Node *a, const Node *b) const {
-    if (a->address.size() != b->address.size()) {
-        return 0.0;
-    }
-    double sum = 0.0;
-    for (size_t i = 0; i < a->address.size(); ++i) {
-        double diff = static_cast<double>(a->address[i] - b->address[i]);
-        sum += diff * diff;
-    }
-    return std::sqrt(sum);
+    return std::sqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
 }
 
 int ShortestPathAlgorithm::getCurrentFlow(const Edge *edge) const {
@@ -58,7 +50,7 @@ bool ShortestPathAlgorithm::aStarDistance(const Node *start, const Node *end,
     // 初始化
     gScore[start] = 0.0;
     fScore[start] = euclideanDistance(start, end);
-    openSet.push({fScore[start], start});
+    openSet.push({gScore[start] + fScore[start], start});
 
     while (!openSet.empty()) {
         const Node *current = openSet.top().second;
@@ -80,7 +72,7 @@ bool ShortestPathAlgorithm::aStarDistance(const Node *start, const Node *end,
                 cameFrom[neighbor] = edge;
                 gScore[neighbor] = tentativeG;
                 fScore[neighbor] = tentativeG + euclideanDistance(neighbor, end);
-                openSet.push({fScore[neighbor], neighbor});
+                openSet.push({gScore[neighbor] + fScore[neighbor], neighbor});
             }
         }
     }
@@ -103,7 +95,7 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
     gScore[start] = 0.0;
     // 启发函数：欧几里得距离 * 全局最小p1参数（最小可能时间）
     fScore[start] = getTimeHeuristic(start, end);
-    openSet.push({fScore[start], start});
+    openSet.push({gScore[start] + fScore[start], start});
 
     while (!openSet.empty()) {
         const Node *current = openSet.top().second;
@@ -128,7 +120,7 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
                 gScore[neighbor] = tentativeG;
                 // 启发函数：欧几里得距离 * 全局最小p1参数
                 fScore[neighbor] = tentativeG + getTimeHeuristic(neighbor, end);
-                openSet.push({fScore[neighbor], neighbor});
+                openSet.push({gScore[neighbor] + fScore[neighbor], neighbor});
             }
         }
     }
@@ -136,89 +128,49 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
     return false; // 未找到路径
 }
 
-VPath ShortestPathAlgorithm::reconstructNodePath(const Node *start, const Node *end,
-                                                 const std::unordered_map<const Node*, const Edge*> &cameFrom) {
-    VPath path;
-    const Node *current = end;
+Graph ShortestPathAlgorithm::reconstructPath(const Node *start, const Node *end,
+                                             const std::unordered_map<const Node*, const Edge*> &cameFrom) {
+    Graph path;
+    std::set<const Node*> nodes;
+    std::set<const Edge*> edges;
 
     if (start == end) {
-        path.push_back(start);
-        return path;
+        nodes.insert(start);
+        return std::make_pair(nodes, edges);
     }
 
+    const Node *current = end;
     while (current != nullptr && current != start) {
-        path.push_back(current);
+        nodes.insert(current);
         auto it = cameFrom.find(current);
         if (it == cameFrom.end()) {
             return {}; // 路径不完整
         }
+        edges.insert(it->second);
         current = it->second->from;
     }
     
     if (current == start) {
-        path.push_back(start);
-        std::reverse(path.begin(), path.end());
+        nodes.insert(start);
     } else {
         return {}; // 路径不完整
     }
 
-    return path;
+    return std::make_pair(nodes, edges);
 }
 
-EPath ShortestPathAlgorithm::reconstructEdgePath(const Node *start, const Node *end,
-                                                 const std::unordered_map<const Node*, const Edge*> &cameFrom) {
-    EPath path;
-    const Node *current = end;
-
-    if (start == end) {
-        return path;
-    }
-
-    while (current != nullptr && current != start) {
-        auto it = cameFrom.find(current);
-        if (it == cameFrom.end()) {
-            return {}; // 路径不完整
-        }
-        path.push_back(it->second);
-        current = it->second->from;
-    }
-    
-    if (current != start) {
-        return {}; // 路径不完整
-    }
-
-    std::reverse(path.begin(), path.end());
-    return path;
-}
-
-VPath ShortestPathAlgorithm::queryNodePath(const Node *start, const Node *end) {
+Graph ShortestPathAlgorithm::queryShortestPath(const Node *start, const Node *end) {
     std::unordered_map<const Node*, const Edge*> cameFrom;
     if (aStarDistance(start, end, cameFrom)) {
-        return reconstructNodePath(start, end, cameFrom);
+        return reconstructPath(start, end, cameFrom);
     }
     return {};
 }
 
-EPath ShortestPathAlgorithm::queryEdgePath(const Node *start, const Node *end) {
-    std::unordered_map<const Node*, const Edge*> cameFrom;
-    if (aStarDistance(start, end, cameFrom)) {
-        return reconstructEdgePath(start, end, cameFrom);
-    }
-    return {};
-}
-
-VPath ShortestPathAlgorithm::queryNodeTimePath(const Node *start, const Node *end) {
+Graph ShortestPathAlgorithm::queryShortestTimePath(const Node *start, const Node *end) {
     std::unordered_map<const Node*, const Edge*> cameFrom;
     if (aStarTime(start, end, cameFrom)) {
-        return reconstructNodePath(start, end, cameFrom);
-    }
-    return {};
-}
-
-EPath ShortestPathAlgorithm::queryEdgeTimePath(const Node *start, const Node *end) {
-    std::unordered_map<const Node*, const Edge*> cameFrom;
-    if (aStarTime(start, end, cameFrom)) {
-        return reconstructEdgePath(start, end, cameFrom);
+        return reconstructPath(start, end, cameFrom);
     }
     return {};
 }

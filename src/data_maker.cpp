@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <limits>
 #include <numeric>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
+#include <cmath>
 
 namespace {
 /**
@@ -357,6 +359,13 @@ int findNearestCore(
     return nearestCore;
 }
 
+std::mt19937 edgeRng(std::chrono::steady_clock::now().time_since_epoch().count());
+
+double edgeParamJitter(double base, double range) {
+    std::uniform_real_distribution<double> dist(-range, range);
+    return base + dist(edgeRng);
+}
+
 bool addGraphEdge(
     Graph &graph,
     std::vector<Node*> &nodes,
@@ -378,18 +387,63 @@ bool addGraphEdge(
         return false;
     }
 
+    int uRep = representativeLevel(u);
+    int vRep = representativeLevel(v);
+    int maxRep = std::max(uRep, vRep);
+
+    int inferredType = 0;
+    if (maxRep >= 2 && level >= 2) {
+        inferredType = 2;
+    } else if (level >= 1) {
+        inferredType = 1;
+    } else if (maxRep >= 1) {
+        inferredType = 3;
+    }
+
     Edge *edge = new Edge();
     edge->name = "E" + std::to_string(edgeIndex);
     edge->from = u;
     edge->to = v;
     edge->length = distance(u, v);
-    edge->volume = std::max(1, baseVolume * (1 + level));
-    edge->p1 = 1.0;
-    edge->p2 = 0.75;
 
+    switch (inferredType) {
+    case 0:
+        edge->volume = std::max(1, static_cast<int>(baseVolume * (1.0 + 0.5 * level)));
+        edge->p1 = edgeParamJitter(2.0, 0.3);
+        edge->p2 = edgeParamJitter(0.625, 0.05);
+        break;
+    case 1:
+        edge->volume = std::max(1, static_cast<int>(baseVolume * (2.0 + 1.0 * level)));
+        edge->p1 = edgeParamJitter(1.05, 0.15);
+        edge->p2 = edgeParamJitter(0.775, 0.05);
+        break;
+    case 2:
+        edge->volume = std::max(1, static_cast<int>(baseVolume * (4.0 + 1.5 * level)));
+        edge->p1 = edgeParamJitter(0.55, 0.08);
+        edge->p2 = edgeParamJitter(0.85, 0.03);
+        break;
+    case 3:
+        edge->volume = std::max(1, static_cast<int>(baseVolume * (2.0 + 0.8 * level)));
+        edge->p1 = edgeParamJitter(1.2, 0.18);
+        edge->p2 = edgeParamJitter(0.725, 0.05);
+        break;
+    }
+
+    Edge *revEdge = new Edge();
+
+    revEdge->from = v;
+    revEdge->to = u;
+    revEdge->volume = edge->volume;
+    revEdge->p1 = edge->p1;
+    revEdge->p2 = edge->p2;
+    revEdge->length = edge->length;
+    revEdge->name = "E" + std::to_string(edgeIndex + 1);
+
+    
     u->edges.emplace_back(edge);
-    v->edges.emplace_back(edge);
+    v->edges.emplace_back(revEdge);
     graph.second.insert(edge);
+    graph.second.insert(revEdge);
     return true;
 }
 
@@ -598,6 +652,9 @@ void generateHierarchicalEdges(
     int planarEdgeLimit = nodeCount < 3
         ? nodeCount * (nodeCount - 1) / 2
         : 3 * nodeCount - 6;
+        
+    planarEdgeLimit *= 2;
+
     edgeTarget = std::max(edgeTarget, static_cast<int>(nodes.size()) - 1);
     edgeTarget = std::min(edgeTarget, planarEdgeLimit);
     int baseVolume = std::max(1, levelVolume);
@@ -917,7 +974,7 @@ DataMaker::DataMaker(
     generateHierarchicalEdges(
         this->graph,
         nodes,
-        edge_num,
+        edge_num * 2,
         level_volume,
         r,
         left,
@@ -930,6 +987,8 @@ DataMaker::DataMaker(
     for (const Node *node : nodes) {
         this->graph.first.insert(node);
     }
+
+    // initTrafficSimulator(edge_num * 10);
 }
 
 const Graph &DataMaker::getGraph() {
@@ -945,6 +1004,6 @@ DataMaker::~DataMaker() {
     }
 }
 
-int DataMaker::queryCurrentFlowInEdge(Edge *edge) {
+int DataMaker::queryCurrentFlowInEdge(const Edge *edge) {
     return 0;
 }

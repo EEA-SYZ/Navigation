@@ -55,8 +55,6 @@ struct Edge {
 };
 
 using Graph = std::pair<std::set<const Node *>, std::set<const Edge *>>;
-using VPath = std::vector<const Node *>;
-using EPath = std::vector<const Edge *>;
 
 /**
  * @brief 标签结构体
@@ -99,9 +97,10 @@ public:
     Tag(Tag &&) = delete;
     Tag &operator=(Tag &&) = delete;
 private:
-    Tag();
-    ~Tag();
+    Tag() = default;
+    ~Tag() = default;
 };
 
+const double PI = std::acos(-1.0);
 
 #endif

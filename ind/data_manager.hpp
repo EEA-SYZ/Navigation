@@ -2,15 +2,26 @@
 #define __DATA_MANAGER_HPP__
 
 #include "global.hpp"
-#include <unordered_map>
-#include <vector>
 #include <queue>
 #include <iostream>
 #include <unordered_set>
+#include <climits>
 #include <tuple>
+#include <limits>
+#include <algorithm>
+#include <list>
 
 using Distancecmp = std::pair<double,const Node*>;
 using Cell=std::pair<int,int>;
+//left,right,top,bottom
+using Boundary=std::tuple<int,int,int,int>;
+//using a=std::pair<Boundary,const Node*>;
+struct NearestInfo
+{
+    Boundary bound;
+    const Node* nearestNode;
+};
+
 
 struct pairHash {
     std::size_t operator() (const std::pair<int, int> &pair) const {
@@ -36,27 +47,36 @@ public:
     Graph queryDataInViewport(
         int left, int right, int top, int bottom, int level
     );
+
     /**
-     * @brief 均匀网格哈希拿候选点,已成为白盒测试函数
+     * @brief 均匀网格哈希拿候选点
      * @param left 视口的左边界
      * @param right 视口的右边界
      * @param top 视口的上边界 
      * @param bottom 视口的下边界 
      * @param level 查询的图的层级 
-     * @return std::set<const Node*> 
+     * @return std::list<const Node*> 
      */
-    std::set<const Node*> hashSearch(int left,int right,int top,int bottom,int level);
+    //todo 用上level
+    std::vector<const Node*> nodeInViewPort(int left,int right,int top,int bottom,int level);
 
     /**
-     * @brief 优先队列拿候选点
-     * @param left 视口的左边界
-     * @param right 视口的右边界
-     * @param top 视口的上边界
-     * @param bottom 视口的下边界
-     * @param level 查询的图的层级
-     * @return priority_queue<Distance,const Node*> 
+     * @brief 拿取指定坐标附近100个点的边界
      */
-    std::priority_queue<Distancecmp> priorityQueueSearch(int left,int right,int top,int bottom,int level);
+    Boundary getNearest100NodesBounds(int col,int row,int level);
+
+    /**
+     * @brief 
+     * 
+     */
+    //todo 
+    const Node* getNodeAt(int col,int row);
+
+    /**
+     * @brief 
+     * 
+     */
+    NearestInfo getNearestInfo(int col,int row,int level);
 
     #ifdef DATA_MANAGER_TEST
     //测试函数所需公有函数
@@ -99,6 +119,7 @@ private:
     void initHash(const Graph& graph);
     std::pair<double,Cell> cellCalculateDistance(int col,int row,double centerX,double centerY) const;
     bool isCellVisited(int col,int row,const std::unordered_set<Cell, pairHash>& visitedCells) const;
+    Node* nearestNode;
 };
 
 #endif

@@ -136,9 +136,71 @@ std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,
 
 Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom, int level)
 {
-    level=0;
-    std::vector<const Node*> nodeList=nodeInViewPort(left,right,top,bottom,level);
-    std::set<const Node*> nodeSet(nodeList.begin(),nodeList.end());
+    std::vector<const Node*> nodeList=nodeInViewPort(left,right,top,bottom,0);
+    std::set<const Node*> nodeSet;
+    //{address[level],node}
+    std::unordered_map<int,const Node*> nodeByGroup;
+    //{address[level],distance}
+    std::unordered_map<int,double> distanceByGroup;
+
+    double centerX=(left+right)/2.0;
+    double centerY=(top+bottom)/2.0;
+
+    //data_maker保证每个点的address层级一致
+    if(!nodeList.empty() && level >= nodeList.front()->address.size())
+    {
+        level=0;
+    }
+    if(level <= 0)
+    {
+        nodeSet=std::set<const Node*>(nodeList.begin(),nodeList.end());
+    }
+    else{
+        
+        for(auto node:nodeList)
+        {
+            //跳过空节点
+            if(node == nullptr)
+            {
+                continue;
+            }
+            int currentAddress=node->address[level];
+            //1.是否是代表点,是则加入
+            bool isRepresent=currentAddress == node->address[0];
+            if(isRepresent)
+            {
+                nodeByGroup[currentAddress]=node;
+                distanceByGroup[currentAddress]=0;
+                continue;
+            }
+            double distance=std::hypot(node->x-centerX,node->y-centerY);
+            //2.如果不是代表点且该组没有点被选中，则加入
+            if(nodeByGroup.find(currentAddress) == nodeByGroup.end())
+            {
+                nodeByGroup[currentAddress]=node;
+                distanceByGroup[currentAddress]=distance;
+                continue;
+            }
+            //3.如果该组已经有点,则取距离小的
+            if(distance < distanceByGroup[currentAddress])
+            {
+                nodeByGroup[currentAddress]=node;
+                distanceByGroup[currentAddress]=distance;
+                continue;
+            }
+            //4.距离一样，统一语义：选address[0]小的
+            if (std::abs(distance - distanceByGroup[currentAddress]) < 1e-9 && node->address[0] < nodeByGroup[currentAddress]->address[0])
+            {
+                nodeByGroup[currentAddress] = node;
+                distanceByGroup[currentAddress] = distance;
+            }
+        }
+        for(auto node:nodeByGroup)
+        {
+            nodeSet.insert(node.second);
+        }
+    }
+
     std::set<const Edge*> edgeSet;
     for(const auto& node:nodeSet)
     {

@@ -1,15 +1,12 @@
 #include "data_manager.hpp"
-#include<cmath>
-#include<limits>
-#include<algorithm>
 
-//todo code review
 DataManager::DataManager(const Graph& graph)
 {
     graphManager=graph;
     initCellData(graph);
     initHash(graph);
 }
+
 void DataManager::initCellData(const Graph& graph)
 {
     int nodeNum=graph.first.size();    
@@ -78,6 +75,7 @@ void DataManager::initCellData(const Graph& graph)
     cellHeight=(topBound-bottomBound)/rowNums;
     
 }
+
 void DataManager::initHash(const Graph& graph)
 {
     for(const auto& node:graph.first)
@@ -99,11 +97,10 @@ DataManager::~DataManager()
     cellBucket.clear();
 }
 
-//todo 降级成辅助测试函数
-std::set<const Node*> DataManager::hashSearch(int left,int right,int top,int bottom,int level)
+std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,int bottom,int level)
 {
     level=0;
-    std::set<const Node*> result;
+    std::vector<const Node*> nodeIn;
     int xmin=std::min(left,right);
     int xmax=std::max(left,right);
     int ymin=std::min(bottom,top);
@@ -128,97 +125,82 @@ std::set<const Node*> DataManager::hashSearch(int left,int right,int top,int bot
                 {
                     if(node->x>=xmin && node->x<=xmax && node->y>=ymin && node->y<=ymax)
                     {
-                        result.insert(node);
+                        nodeIn.push_back(node);
                     }
                 }
             }
         }
     }
-    return result;
-}
-
-//todo 为什么没有传点进来
-std::priority_queue<Distancecmp> DataManager::priorityQueueSearch(int left,int right,int top,int bottom,int level)
-{
-    level=0;
-    std::priority_queue<Distancecmp> result;
-    std::priority_queue<std::pair<double,Cell>,std::vector<std::pair<double,Cell>>,std::greater<std::pair<double,Cell>>> cellQueue;
-    std::unordered_set<Cell, pairHash> visitedCells;
-    std::unordered_set<const Node*> visitedNodes;
-    double centerX=(left+right)/2.0;
-    double centerY=(top+bottom)/2.0;
-    int centerCol=(int) std::floor((centerX-leftBound)/cellWidth);
-    int centerRow=(int) std::floor((centerY-bottomBound)/cellHeight);
-    centerCol=std::clamp(centerCol,0,colNums-1);
-    centerRow=std::clamp(centerRow,0,rowNums-1);
-    cellQueue.push(cellCalculateDistance(centerCol,centerRow,centerX,centerY));
-    visitedCells.insert({centerCol,centerRow});
-
-    auto tryPushCell = [&](int nextCol, int nextRow)
-    {
-        if (nextCol < 0 || nextCol >= colNums || nextRow < 0 || nextRow >= rowNums)
-        {
-            return;
-        }
-        if (isCellVisited(nextCol, nextRow, visitedCells))
-        {
-            return;
-        }
-        cellQueue.push(cellCalculateDistance(nextCol, nextRow, centerX, centerY));
-        visitedCells.insert({nextCol, nextRow});
-    };
-
-    while (!cellQueue.empty())
-    {
-        auto [distance, cell] = cellQueue.top();
-        auto [col,row] = cell;
-        cellQueue.pop();
-
-        if (result.size() >= 100 && distance >= result.top().first)
-        {
-            break;
-        }
-
-        auto it = cellBucket.find(cell);
-        if (it != cellBucket.end())
-        {
-            for (const auto& node : it->second)
-            {
-                if (node == nullptr || visitedNodes.find(node) != visitedNodes.end())
-                {
-                    continue;
-                }
-
-                visitedNodes.insert(node);
-                double nodeDistance = std::hypot(node->x-centerX,node->y-centerY);
-                result.push({nodeDistance,node});
-                if (result.size() > 100)
-                {
-                    result.pop();
-                }
-            }
-        }
-
-        tryPushCell(col,row+1);
-        tryPushCell(col,row-1);
-        tryPushCell(col+1,row);
-        tryPushCell(col-1,row);
-    }
-    
-    return result;
+    return nodeIn;
 }
 
 Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom, int level)
 {
-    level=0;
+    std::vector<const Node*> nodeList=nodeInViewPort(left,right,top,bottom,0);
     std::set<const Node*> nodeSet;
-    std::priority_queue<Distancecmp> topNodes=priorityQueueSearch(left,right,top,bottom,level);
-    while (!topNodes.empty())
+    //{address[level],node}
+    std::unordered_map<int,const Node*> nodeByGroup;
+    //{address[level],distance}
+    std::unordered_map<int,double> distanceByGroup;
+
+    double centerX=(left+right)/2.0;
+    double centerY=(top+bottom)/2.0;
+
+    //data_maker保证每个点的address层级一致
+    if(!nodeList.empty() && level >= nodeList.front()->address.size())
     {
-        const Node* node=topNodes.top().second;
-        topNodes.pop();
-        nodeSet.insert(node);
+        level=0;
     }
+    if(level <= 0)
+    {
+        nodeSet=std::set<const Node*>(nodeList.begin(),nodeList.end());
+    }
+    else{
+        
+        for(auto node:nodeList)
+        {
+            //跳过空节点
+            if(node == nullptr)
+            {
+                continue;
+            }
+            int currentAddress=node->address[level];
+            //1.是否是代表点,是则加入
+            bool isRepresent=currentAddress == node->address[0];
+            if(isRepresent)
+            {
+                nodeByGroup[currentAddress]=node;
+                distanceByGroup[currentAddress]=0;
+                continue;
+            }
+            double distance=std::hypot(node->x-centerX,node->y-centerY);
+            //2.如果不是代表点且该组没有点被选中，则加入
+            if(nodeByGroup.find(currentAddress) == nodeByGroup.end())
+            {
+                nodeByGroup[currentAddress]=node;
+                distanceByGroup[currentAddress]=distance;
+                continue;
+            }
+            //3.如果该组已经有点,则取距离小的
+            if(distance < distanceByGroup[currentAddress])
+            {
+                nodeByGroup[currentAddress]=node;
+                distanceByGroup[currentAddress]=distance;
+                continue;
+            }
+            //4.距离一样，统一语义：选address[0]小的
+            if (std::abs(distance - distanceByGroup[currentAddress]) < 1e-9 && node->address[0] < nodeByGroup[currentAddress]->address[0])
+            {
+                nodeByGroup[currentAddress] = node;
+                distanceByGroup[currentAddress] = distance;
+            }
+        }
+        for(auto node:nodeByGroup)
+        {
+            nodeSet.insert(node.second);
+        }
+    }
+
     std::set<const Edge*> edgeSet;
     for(const auto& node:nodeSet)
     {
@@ -240,6 +222,117 @@ Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom,
         }
     }
     return {nodeSet,edgeSet};
+}
+
+
+NearestInfo DataManager::getNearestInfo(int col,int row,int level)
+{
+    level=0;
+    std::priority_queue<Distancecmp> nearestNode;
+    std::priority_queue<std::pair<double,Cell>,std::vector<std::pair<double,Cell>>,std::greater<std::pair<double,Cell>>> cellQueue;
+    std::unordered_set<Cell, pairHash> visitedCells;
+    std::unordered_set<const Node*> visitedNodes;
+    int cellCol=(int) std::floor((col-leftBound)/cellWidth);
+    int cellRow=(int) std::floor((row-bottomBound)/cellHeight);
+    cellCol=std::clamp(cellCol,0,colNums-1);
+    cellRow=std::clamp(cellRow,0,rowNums-1);
+    cellQueue.push(cellCalculateDistance(cellCol,cellRow,col,row));
+    visitedCells.insert({cellCol,cellRow});
+
+    auto tryPushCell = [&](int nextCol, int nextRow)
+    {
+        if (nextCol < 0 || nextCol >= colNums || nextRow < 0 || nextRow >= rowNums)
+        {
+            return;
+        }
+        if (isCellVisited(nextCol, nextRow, visitedCells))
+        {
+            return;
+        }
+        cellQueue.push(cellCalculateDistance(nextCol, nextRow, col, row));
+        visitedCells.insert({nextCol, nextRow});
+    };
+
+    while (!cellQueue.empty())
+    {
+        auto [distance, cell] = cellQueue.top();
+        auto [nodeCol,nodeRow] = cell;
+        cellQueue.pop();
+
+        if (nearestNode.size() >= 100 && distance >= nearestNode.top().first)
+        {
+            break;
+        }
+
+        auto it = cellBucket.find(cell);
+        if (it != cellBucket.end())
+        {
+            for (const auto& node : it->second)
+            {
+                if (node == nullptr || visitedNodes.find(node) != visitedNodes.end())
+                {
+                    continue;
+                }
+
+                visitedNodes.insert(node);
+                double nodeDistance = std::hypot(node->x-col,node->y-row);
+                nearestNode.push({nodeDistance,node});
+                if (nearestNode.size() > 100)
+                {
+                    nearestNode.pop();
+                }
+            }
+        }
+
+        tryPushCell(nodeCol,nodeRow+1);
+        tryPushCell(nodeCol,nodeRow-1);
+        tryPushCell(nodeCol+1,nodeRow);
+        tryPushCell(nodeCol-1,nodeRow);
+    }
+    NearestInfo nearestInfo;
+    if (nearestNode.empty())
+    {
+        nearestInfo.bound={0,0,0,0};
+        nearestInfo.nearestNode=nullptr;
+        return nearestInfo;
+    }
+
+    double minX=std::numeric_limits<double>::max();
+    double maxX=std::numeric_limits<double>::lowest();
+    double minY=std::numeric_limits<double>::max();
+    double maxY=std::numeric_limits<double>::lowest();
+
+    while (!nearestNode.empty())
+    {
+        auto node=nearestNode.top();
+        if(nearestNode.size()==1)
+        {
+            nearestInfo.nearestNode=node.second;
+        }
+        nearestNode.pop();
+        minX=std::min(node.second->x,minX);
+        maxX=std::max(node.second->x,maxX);
+        minY=std::min(node.second->y,minY);
+        maxY=std::max(node.second->y,maxY);
+    }
+
+    int left=(int)std::floor(minX);
+    int right=(int)std::ceil(maxX);
+    int top=(int)std::ceil(maxY);
+    int bottom=(int)std::floor(minY);
+    nearestInfo.bound={left,right,top,bottom};
+    return nearestInfo;
+}
+
+Boundary DataManager::getNearest100NodesBounds(int col,int row,int level)
+{
+    return getNearestInfo(col,row,0).bound;
+}
+
+
+const Node* DataManager::getNodeAt(int col,int row)
+{
+    return getNearestInfo(col,row,0).nearestNode;
 }
 
 std::pair<double,Cell> DataManager::cellCalculateDistance(int col,int row,double centerX,double centerY) const

@@ -16,7 +16,9 @@
 
 class PerlinNoise {
 public:
+    PerlinNoise() = default;
     PerlinNoise(int width, int height, double block_size);
+    void init(int width, int height, double block_size);
     double noise(double x, double y) const;
     ~PerlinNoise();
     static double lerp(double t);
@@ -65,12 +67,32 @@ public:
     int getLevelNum() const { return levelNum; }
 
 private:
+    bool addGraphEdge(
+        Graph &graph,
+        std::vector<Node*> &nodes,
+        int from,
+        int to,
+        int level,
+        int baseVolume,
+        int edgeIndex
+    );
     void initForFlow();
+    Edge *forFlow(Edge *edge);
 
-    PerlinNoise *perlinNoise;
     Graph graph;
     int leftBound, rightBound, bottomBound, topBound;
     int levelNum;
+    PerlinNoise pnV;
+    PerlinNoise pn1;
+    PerlinNoise pn2;
+    PerlinNoise pnAh;
+    PerlinNoise pnTh;
+    PerlinNoise pnPh;
+    PerlinNoise pnAl;
+    PerlinNoise pnTl;
+    PerlinNoise pnPl;
+
+    sf::Clock clock;
 };
 
 /**

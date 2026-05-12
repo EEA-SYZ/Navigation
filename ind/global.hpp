@@ -42,6 +42,13 @@ struct Edge {
      * @param n 流量
      * @return 计算的时间
      */
+    double Ah; // 幅值 - 高频参数
+    double Th; // 周期 - 高频参数
+    double Ph; // 初相位 - 高频参数
+    double Al; // 幅值 - 低频参数
+    double Tl; // 周期 - 低频参数
+    double Pl; // 初相位 - 低频参数
+
     double getTime(int n) const
     {
         double f;

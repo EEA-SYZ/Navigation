@@ -442,8 +442,8 @@ bool addGraphEdge(
     
     u->edges.emplace_back(edge);
     v->edges.emplace_back(revEdge);
-    graph.second.insert(edge);
-    graph.second.insert(revEdge);
+    graph.second.insert(forFlow(edge));
+    graph.second.insert(forFlow(revEdge));
     return true;
 }
 
@@ -961,6 +961,9 @@ DataMaker::DataMaker(
     int level_num, int level_volume
 ) : leftBound(left), rightBound(right), topBound(top), bottomBound(bottom), levelNum(level_num)
 {
+    clock.restart();
+    initForFlow();
+
     std::vector<Node*> nodes;
     double r = 0;
 
@@ -985,14 +988,11 @@ DataMaker::DataMaker(
     );
 
     // 将生成节点加入图中
-    for (const Node *node : nodes) {
+    for (Node *node : nodes) {
         this->graph.first.insert(node);
     }
 
     // initTrafficSimulator(edge_num * 10);
-
-    this->perlinNoise = new PerlinNoise(100, 100, 100);
-    initForFlow();
 }
 
 const Graph &DataMaker::getGraph() {
@@ -1010,17 +1010,45 @@ DataMaker::~DataMaker() {
 
 int DataMaker::queryCurrentFlowInEdge(const Edge *edge) 
 {
-    auto x = (edge->from->x + edge->to->x) / 2;
-    auto y = (edge->from->y + edge->to->y) / 2;
-    return static_cast<int>(this->perlinNoise->noise(x, y));
+    auto t = clock.getElapsedTime().asMicroseconds();
+    auto h = edge->Ah * std::sin(2 * PI / edge->Th * t + edge->Ph) + edge->Ah;
+    auto l = edge->Al * std::sin(2 * PI / edge->Tl * t + edge->Pl) + edge->Al;
+    return static_cast<int>(h * l);
 }
 
 void DataMaker::initForFlow()
 {
-    ;
+    pnV.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pn1.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pn2.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnAh.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnTh.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnPh.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnAl.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnTl.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnPl.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+}
+
+Edge *DataMaker::forFlow(Edge *edge)
+{
+    edge->volume = (pnV.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 * 500;
+    edge->p1 = (pn1.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *     3.8 + 0.2;
+    edge->p2 = (pn2.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *     0.7 + 0.5;
+    edge->Ah = (pnAh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    70 + 140;
+    edge->Th = (pnTh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    15 + 15;
+    edge->Ph = (pnPh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    2 * PI;
+    edge->Al = (pnAl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    40 + 20;
+    edge->Tl = (pnTl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    3 + 2;
+    edge->Pl = (pnPl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    2 * PI;
+    return edge;
 }
 
 PerlinNoise::PerlinNoise(int width, int height, double block_size)
+{
+    init(width, height, block_size);
+}
+
+void PerlinNoise::init(int width, int height, double block_size)
 {
     this->width = width;
     this->height = height;
@@ -1049,38 +1077,34 @@ double PerlinNoise::noise(double x, double y) const
 
     int xi = std::floor(x / block_size);
     int yi = std::floor(y / block_size);
+
+    auto A = noiseMap[xi][yi];
+    auto B = noiseMap[xi + 1][yi];
+    auto C = noiseMap[xi][yi + 1];
+    auto D = noiseMap[xi + 1][yi + 1];
+
+    sf::Vector2f p = sf::Vector2f(x, y);
     double xlb = xi * block_size;
     double ylb = yi * block_size;
+    sf::Vector2f lb = sf::Vector2f(xlb, ylb);
     double xrb = xlb + block_size;
     double yrb = ylb;
+    sf::Vector2f rb = sf::Vector2f(xrb, yrb);
     double xrt = xlb + block_size;
     double yrt = ylb + block_size;
+    sf::Vector2f rt = sf::Vector2f(xrt, yrt);
     double xlt = xlb;
     double ylt = ylb + block_size;
+    sf::Vector2f lt = sf::Vector2f(xlt, ylt);
 
     double t = lerp((x - xlb) / block_size);
     double tu = lerp((y - ylb) / block_size);
 
-    ;
+    auto prod = [](sf::Vector2f a, sf::Vector2f b){
+        return a.x * b.x + a.y * b.y;
+    };
 
-    double B = (1 - t) * (x - xlb) * noiseMap[xi][yi].x + \
-        t * (x - xrb) * noiseMap[xi + 1][yi].x;
-    double T = (1 - t) * (x - xlt) * noiseMap[xi][yi + 1].x + \
-        t * (x - xrt) * noiseMap[xi + 1][yi + 1].x;
-
-    double fst = (1 - tu) * B + tu * T;
-
-    t = lerp((y - ylb) / block_size);
-    B = (1 - t) * (y - ylb) * noiseMap[xi][yi].y + \
-        t * (y - ylt) * noiseMap[xi][yi + 1].y;
-    T = (1 - t) * (y - yrb) * noiseMap[xi + 1][yi].y + \
-        t * (y - yrt) * noiseMap[xi + 1][yi + 1].y;
-    tu = lerp((x - xlb) / block_size);
-    double snd = (1 - tu) * B + tu * T;
-
-    double l = 0.5;
-
-    return l * fst + (1 - l) * snd;
+    return (1 - tu) * ((1 - t) * prod(p - lb, A) + t * prod(p - rb, B)) + tu * ((1 - t) * prod(p - lt, C) + t * prod(p - rt, D));
 }
 
 PerlinNoise::~PerlinNoise()

@@ -61,6 +61,8 @@ public:
      * @return 边的当前流量
      */
     int queryCurrentFlowInEdge(const Edge *edge);
+    
+    int getLevelNum() const { return levelNum; }
 
 private:
     void initForFlow();
@@ -68,6 +70,7 @@ private:
     PerlinNoise *perlinNoise;
     Graph graph;
     int leftBound, rightBound, bottomBound, topBound;
+    int levelNum;
 };
 
 /**

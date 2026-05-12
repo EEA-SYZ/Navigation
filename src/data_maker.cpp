@@ -959,7 +959,7 @@ DataMaker::DataMaker(
     double left, double right, double top, double bottom,
     int node_num, int edge_num, 
     int level_num, int level_volume
-) : leftBound(left), rightBound(right), topBound(top), bottomBound(bottom)
+) : leftBound(left), rightBound(right), topBound(top), bottomBound(bottom), levelNum(level_num)
 {
     std::vector<Node*> nodes;
     double r = 0;
@@ -1059,12 +1059,15 @@ double PerlinNoise::noise(double x, double y) const
     double ylt = ylb + block_size;
 
     double t = lerp((x - xlb) / block_size);
+    double tu = lerp((y - ylb) / block_size);
+
+    ;
+
     double B = (1 - t) * (x - xlb) * noiseMap[xi][yi].x + \
         t * (x - xrb) * noiseMap[xi + 1][yi].x;
     double T = (1 - t) * (x - xlt) * noiseMap[xi][yi + 1].x + \
         t * (x - xrt) * noiseMap[xi + 1][yi + 1].x;
 
-    double tu = lerp((y - ylb) / block_size);
     double fst = (1 - tu) * B + tu * T;
 
     t = lerp((y - ylb) / block_size);

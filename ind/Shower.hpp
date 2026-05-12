@@ -6,6 +6,7 @@
 #define ____FF(F, G, H, I, B) F {B} G {B} H {B} I {B}
 
 #include <functional>
+#include <algorithm>
 
 // 视口结构体
 struct Viewport {
@@ -14,18 +15,28 @@ struct Viewport {
     double top;       // 上边界
     double bottom;    // 下边界
     int level;        // 当前层级
+    int maxLevel;     // 最大层级数
     
     double getWidth() const { return right - left; }
     double getHeight() const { return top - bottom; }
-    void updateLevel(double t) { const auto &b = 1.5; level = t > b * b * b * b ? 4 : t > b * b * b ? 3 : t > b * b ? 2 : t > b ? 1 : 0; }
+    void updateLevel(double t) { 
+        const auto &b = 1.4;
+        for (int i = maxLevel - 1; i > 0; --i) {
+            if (t > std::pow(std::pow(b, i), 2)) {
+                level = i;
+                return;
+            }
+        }
+        level = 0;
+    }
 };
 // Shower类 - 封装地图显示功能
 class Shower {
 public:
-    Shower(int mapWidth, int mapHeight, int nodeCount, int edgeCount) : mapWidth(mapWidth), mapHeight(mapHeight), isDragging(false) 
+    Shower(int mapWidth, int mapHeight, int nodeCount, int edgeCount, int levelNum = 5, int levelVolume = 50) : mapWidth(mapWidth), mapHeight(mapHeight), isDragging(false) 
     {
         // 创建数据对象
-        dataMaker = new DataMaker(0, mapWidth, 0, mapHeight, nodeCount, edgeCount);
+        dataMaker = new DataMaker(0, mapWidth, 0, mapHeight, nodeCount, edgeCount, levelNum, levelVolume);
         dataManager = new DataManager(dataMaker->getGraph());
         shortestPathAlgorithm = new ShortestPathAlgorithm(dataMaker->getGraph());
         shortestPathAlgorithm->setFlowQueryInterface([this](const Edge *edge) {
@@ -42,6 +53,7 @@ public:
         viewport.top = window->getSize().y;
         viewport.bottom = 0;
         viewport.level = 0;
+        viewport.maxLevel = levelNum;
         
         oldWindowWidth = window->getSize().x;
         oldWindowHeight = window->getSize().y;
@@ -69,9 +81,14 @@ public:
     
     // 强制设置level
     void setLevel(int level) {
-        if (level >= 0 && level <= 4) {
+        if (level >= 0 && level < viewport.maxLevel) {
             viewport.level = level;
         }
+    }
+    
+    // 获取levelNum
+    int getLevelNum() const {
+        return viewport.maxLevel;
     }
     
     ~Shower() 

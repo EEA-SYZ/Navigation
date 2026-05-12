@@ -11,7 +11,7 @@
 #include "shortest_path_algorithm.hpp"
 #include "Shower.hpp"
 
-void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCountInt, int &edgeCountInt)
+void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCountInt, int &edgeCountInt, int &levelNumInt)
 {
     // 创建主布局容器
     ui::VerticalBox* ver = new ui::VerticalBox;{
@@ -40,7 +40,7 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
         mapWidth->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
         mapWidth->SetSpecialCharacters(ui::InputBox::NUMBER);
         mapWidth->SetLengthLimit(6);
-        mapWidth->SetText("10000");
+        mapWidth->SetText("20000");
     }
 
     // 地图高
@@ -55,7 +55,7 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
         mapHeight->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
         mapHeight->SetSpecialCharacters(ui::InputBox::NUMBER);
         mapHeight->SetLengthLimit(6);
-        mapHeight->SetText("10000");
+        mapHeight->SetText("20000");
     }
 
     // 节点数
@@ -70,7 +70,7 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
         nodeCount->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
         nodeCount->SetSpecialCharacters(ui::InputBox::NUMBER);
         nodeCount->SetLengthLimit(6);
-        nodeCount->SetText("10000");
+        nodeCount->SetText("40000");
     }
 
     // 边数
@@ -85,9 +85,24 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
         edgeCount->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
         edgeCount->SetSpecialCharacters(ui::InputBox::NUMBER);
         edgeCount->SetLengthLimit(6);
-        edgeCount->SetText("18000");
+        edgeCount->SetText("72000");
     }
-
+    
+    // 层级数
+    hor = new ui::HorizontalBox;{
+        hor->AddTo(ver);
+        hor->SetPreset(ui::Control::Preset::FILL_FROM_CENTER);
+    }
+    ui::InputBox* levelNum = new ui::InputBox;{
+        hor->Add(new ui::Label("层级数: ", ui::Control::Preset::WRAP_AT_CENTER));
+        levelNum->AddTo(hor);
+        levelNum->SetPreset(ui::Control::Preset::FILL_FROM_CENTER);
+        levelNum->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
+        levelNum->SetSpecialCharacters(ui::InputBox::NUMBER);
+        levelNum->SetLengthLimit(6);
+        levelNum->SetText("6");
+    }
+    
     // 确认按钮
     ui::Button* confirmBtn = new ui::Button;{
         confirmBtn->AddTo(ver);
@@ -108,7 +123,8 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
             mapWidth->GetText().empty() ||
             mapHeight->GetText().empty() ||
             nodeCount->GetText().empty() ||
-            edgeCount->GetText().empty()
+            edgeCount->GetText().empty() ||
+            levelNum->GetText().empty()
         ) {
             confirmLabel->SetVisible(true);
             return;
@@ -117,6 +133,7 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
         mapHeightInt = std::stoi(mapHeight->GetText());
         nodeCountInt = std::stoi(nodeCount->GetText());
         edgeCountInt = std::stoi(edgeCount->GetText());
+        levelNumInt = std::stoi(levelNum->GetText());
         isConfirm = true;
     });
 
@@ -132,9 +149,9 @@ void create(ui::Screen& screen, int &mapWidthInt, int &mapHeightInt, int &nodeCo
     screen.FreeAll();
 }
 
-void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCountInt, int edgeCountInt)
+void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCountInt, int edgeCountInt, int levelNumInt)
 {
-    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+    static Shower shower(mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt, levelNumInt);
     Graph path;
     // 初始化起点和终点
     const Node* startNode = nullptr;
@@ -223,6 +240,17 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         });
     }
     
+    // 显示当前level的区域
+    ui::HorizontalBox* currentLevelBox = new ui::HorizontalBox;{
+        currentLevelBox->AddTo(topBar);
+        currentLevelBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        currentLevelBox->SetGap(10);
+    }
+    ui::Label* currentLevelLabel = new ui::Label("当前层级: 0");{
+        currentLevelLabel->AddTo(currentLevelBox);
+        currentLevelLabel->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+    }
+    
     // 创建强制层级区域
     ui::HorizontalBox* levelBox = new ui::HorizontalBox;{
         levelBox->AddTo(topBar);
@@ -233,7 +261,8 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         levelLabel->AddTo(levelBox);
         levelLabel->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
     }
-    for (int i = 0; i <= 4; ++i) {
+    int levelCount = shower.getLevelNum();
+    for (int i = 0; i < levelCount; ++i) {
         ui::Button* levelBtn = new ui::Button;{
             levelBtn->AddTo(levelBox);
             levelBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
@@ -461,6 +490,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         screen.Tick();
         screen.Draw();
         shower.Tick(path, startNode, endNode);
+        currentLevelLabel->SetContent("当前层级: " + std::to_string(shower.getViewport().level));
     }
 
     screen.FreeAll();
@@ -474,8 +504,9 @@ int main() {
     int mapHeightInt = 0;
     int nodeCountInt = 0;
     int edgeCountInt = 0;
-    create(screen, mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
-    showing(screen, mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt);
+    int levelNumInt = 7;
+    create(screen, mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt, levelNumInt);
+    showing(screen, mapWidthInt, mapHeightInt, nodeCountInt, edgeCountInt, levelNumInt);
     
     return 0;
 }

@@ -1085,7 +1085,7 @@ PerlinNoise::~PerlinNoise()
     ;
 }
 
-double PerlinNoise::lerp(double t) const
+double PerlinNoise::lerp(double t)
 {
     return 3 * t * t - 2 * t * t * t;
 }

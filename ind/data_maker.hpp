@@ -19,11 +19,11 @@ public:
     PerlinNoise(int width, int height, double block_size);
     double noise(double x, double y) const;
     ~PerlinNoise();
+    static double lerp(double t);
 private:
     int width, height;
     double block_size;
     std::vector<std::vector<sf::Vector2f>> noiseMap;
-    double lerp(double t) const;
     
     std::mt19937 gen{std::random_device{}()};
     std::uniform_real_distribution<double> dis{0, 1};

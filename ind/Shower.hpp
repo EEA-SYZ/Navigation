@@ -1,6 +1,10 @@
 #ifndef __SHOWER_HPP__
 #define __SHOWER_HPP__
 
+#define __FF(F, G, B) F {B} G {B}
+#define ___FF(F, G, H, B) F {B} G {B} H {B}
+#define ____FF(F, G, H, I, B) F {B} G {B} H {B} I {B}
+
 #include <functional>
 
 // Shower类 - 封装地图显示功能
@@ -51,7 +55,7 @@ public:
      * @brief 执行一次主循环
      * @return 如果点击了节点返回节点指针；如果窗口关闭返回 nullptr；否则返回 nullptr
      */
-    const Node* Tick() 
+    const Node* Tick(const Graph& path = Graph(), const Node* startNode = nullptr, const Node* endNode = nullptr) 
     {
         if (!window->isOpen()) {
             return nullptr;
@@ -80,7 +84,7 @@ public:
                     isDragging = true;
                     lastMousePos = sf::Mouse::getPosition(*window);
                     // 记录按下时的节点
-                    pressedNode = getNodeAtPosition(lastMousePos);
+                    pressedNode = getNodeAtPosition(lastMousePos, startNode, endNode);
                 }
             }
             // 鼠标移动事件（拖拽平移）
@@ -93,7 +97,7 @@ public:
                     isDragging = false;
                     // 检测释放时是否在同一个节点上
                     sf::Vector2i releasePos = sf::Mouse::getPosition(*window);
-                    const Node* releasedNode = getNodeAtPosition(releasePos);
+                    const Node* releasedNode = getNodeAtPosition(releasePos, startNode, endNode);
                     // 如果按下和释放都在同一个节点上，调用回调函数
                     if (pressedNode != nullptr && releasedNode != nullptr && pressedNode == releasedNode) {
                         if (nodeClickCallback) {
@@ -106,7 +110,7 @@ public:
         }
         
         // 绘制地图
-        drawMap();
+        drawMap(path, startNode, endNode);
         
         return result;
     }
@@ -132,6 +136,7 @@ private:
         
         double getWidth() const { return right - left; }
         double getHeight() const { return top - bottom; }
+        void updateLevel(double t) { const auto &b = 1.5; level = t > b * b * b * b ? 4 : t > b * b * b ? 3 : t > b * b ? 2 : t > b ? 1 : 0; }
     };
     
     // 数据成员
@@ -170,12 +175,18 @@ private:
         double newWidth = viewport.getWidth() * zoomFactor;
         double newHeight = viewport.getHeight() * zoomFactor;
         
-        if (newWidth > 50 && newHeight > 50 && newWidth < mapWidth * 3.0 && newHeight < mapHeight * 3.0) {
+        auto oldWidth = viewport.getWidth();
+        auto oldHeight = viewport.getHeight();
+        if (newWidth > 50 && newHeight > 50 && newWidth < mapWidth * 3.0 && newHeight < mapHeight * 3.0 ||
+            !(oldWidth > 50 && oldHeight > 50 && oldWidth < mapWidth * 3.0 && oldHeight < mapHeight * 3.0)) {
             viewport.left = graphX - ratioX * newWidth;
             viewport.right = viewport.left + newWidth;
             viewport.top = graphY + ratioY * newHeight;
             viewport.bottom = viewport.top - newHeight;
         }
+
+        auto t = viewport.getWidth() / window->getSize().x;
+        viewport.updateLevel(t);
     }
     
     // 处理窗口大小改变
@@ -218,7 +229,7 @@ private:
     }
     
     // 获取鼠标位置对应的节点
-    const Node* getNodeAtPosition(const sf::Vector2i& mousePos)
+    const Node* getNodeAtPosition(const sf::Vector2i& mousePos, const Node *startNode, const Node *endNode)
     {
         double scaleX = window->getSize().x / viewport.getWidth();
         double scaleY = window->getSize().y / viewport.getHeight();
@@ -226,19 +237,23 @@ private:
         double graphY = viewport.top - static_cast<double>(mousePos.y) / scaleY;
         
         // 检查是否有节点在鼠标位置附近
-        for (const Node* node : currentGraph.first) {
+        double detectRadius = std::max(12.0, 12.0 / scaleX);
+        ___FF(for (const Node* node : currentGraph.first),
+            if (startNode && viewport.level != 0) for (const Node* node : {startNode}),
+            if (endNode && viewport.level != 0) for (const Node* node : {endNode}),
+            {
             double dx = node->x - graphX;
             double dy = node->y - graphY;
             double distance = std::sqrt(dx * dx + dy * dy);
-            if (distance < 10.0) {  // 节点检测半径
+            if (distance < detectRadius) {  // 节点检测半径，随level缩放
                 return node;
             }
-        }
+        })
         return nullptr;
     }
     
     // 绘制地图
-    void drawMap() 
+    void drawMap(const Graph& path, const Node* startNode, const Node* endNode) 
     {
         window->clear(sf::Color::White);
         
@@ -250,16 +265,21 @@ private:
             static_cast<int>(viewport.bottom),
             viewport.level
         );
+
+        std::clog << "level: " << viewport.level << std::endl;
         
         double scaleX = window->getSize().x / viewport.getWidth();
         double scaleY = window->getSize().y / viewport.getHeight();
         
         float lineThickness = std::max(1.5f, static_cast<float>(scaleX * 2));
-        float nodeRadius = std::max(6.0f, static_cast<float>(scaleX * 10));
+        float nodeRadius = std::max(10.0f, static_cast<float>(scaleX * 10));
         float outlineThickness = std::max(2.0f, static_cast<float>(scaleX * 3));
+        float edgeOffset = std::max(5.0, 5.0f * scaleX);  // 边的偏移量，避免双向边重合
 
         // 绘制边
-        for (const Edge* edge : currentGraph.second) {
+        __FF(for (const Edge* edge : currentGraph.second), 
+             if (viewport.level != 0) for (const Edge* edge : path.second), 
+             {
             sf::Vector2f start(
                 (edge->from->x - viewport.left) * scaleX,
                 (viewport.top - edge->from->y) * scaleY
@@ -273,8 +293,11 @@ private:
             float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
             
             sf::Vector2f normalizedDir = direction / length;
-            sf::Vector2f adjustedStart = start + normalizedDir * nodeRadius;
-            sf::Vector2f adjustedEnd = end - normalizedDir * nodeRadius;
+            // 计算右侧法线方向 (-dy, dx)
+            sf::Vector2f rightNormal(-normalizedDir.y, normalizedDir.x);
+            
+            sf::Vector2f adjustedStart = start + normalizedDir * nodeRadius + rightNormal * edgeOffset;
+            sf::Vector2f adjustedEnd = end - normalizedDir * nodeRadius + rightNormal * edgeOffset;
             sf::Vector2f adjustedDirection = adjustedEnd - adjustedStart;
             float adjustedLength = std::max(0.0f, std::sqrt(
                 adjustedDirection.x * adjustedDirection.x + 
@@ -289,7 +312,7 @@ private:
             
             sf::RectangleShape lineShape(sf::Vector2f(adjustedLength, currentThickness));
             // 检查是否在路径上
-            if (Tag::instance()[edge]["onpath"] == "1") {
+            if (0 && Tag::instance()[edge]["onpath"] == "1") {
                 lineShape.setFillColor(sf::Color(255, 0, 0));  // 红色表示路径
             } else {
                 // 根据流量计算颜色：流量少->绿色，流量多->红色，中间黄橙过渡
@@ -301,20 +324,20 @@ private:
                 if (ratio <= 0.33) {
                     // 绿色到黄色的过渡 (0-0.33)
                     double t = ratio / 0.33;
-                    color.r = static_cast<sf::Uint8>(0 + t * 255);
+                    color.r = static_cast<sf::Uint8>(0 + PerlinNoise::lerp(t) * 255);
                     color.g = 255;
                     color.b = 0;
                 } else if (ratio <= 0.67) {
                     // 黄色到橙色的过渡 (0.33-0.67)
                     double t = (ratio - 0.33) / 0.34;
                     color.r = 255;
-                    color.g = static_cast<sf::Uint8>(255 - t * 90);
+                    color.g = static_cast<sf::Uint8>(255 - PerlinNoise::lerp(t) * 90);
                     color.b = 0;
                 } else {
                     // 橙色到红色的过渡 (0.67-1.0)
                     double t = (ratio - 0.67) / 0.33;
                     color.r = 255;
-                    color.g = static_cast<sf::Uint8>(165 - t * 165);
+                    color.g = static_cast<sf::Uint8>(165 - PerlinNoise::lerp(t) * 165);
                     color.b = 0;
                 }
                 lineShape.setFillColor(color);
@@ -324,10 +347,31 @@ private:
             lineShape.setOrigin(0, currentThickness / 2);
 
             window->draw(lineShape);
-        }
-
+            
+            // 绘制箭头（在终点一侧，指向终点）
+            sf::Color arrowColor = lineShape.getFillColor();
+            float arrowSize = lineThickness * 4;  // 箭头大小
+            float arrowWidth = lineThickness * 2;  // 箭头宽度
+            
+            // 箭头尖端在终点位置，底边在终点后方
+            sf::Vector2f arrowTip = adjustedEnd;  // 箭头尖端指向终点
+            sf::Vector2f arrowBack = adjustedEnd - normalizedDir * arrowSize;  // 箭头底边
+            
+            // 绘制箭头（三角形）
+            sf::ConvexShape arrow(3);
+            arrow.setPoint(0, arrowTip);
+            arrow.setPoint(1, arrowBack + rightNormal * arrowWidth);
+            arrow.setPoint(2, arrowBack - rightNormal * arrowWidth);
+            arrow.setFillColor(arrowColor);
+            window->draw(arrow);
+        })
+        
         // 绘制节点
-        for (const Node* node : currentGraph.first) {
+        ____FF(for (const Node* node : currentGraph.first), 
+             if (viewport.level != 0) for (const Node* node : path.first), 
+             if (startNode && viewport.level != 0) for (const Node* node : {startNode}),
+             if (endNode && viewport.level != 0) for (const Node* node : {endNode}),
+            {
             sf::Vector2f position(
                 (node->x - viewport.left) * scaleX,
                 (viewport.top - node->y) * scaleY
@@ -362,7 +406,7 @@ private:
             
             circle.setPosition(position - sf::Vector2f(nodeRadius, nodeRadius));
             window->draw(circle);
-        }
+        })
         
         window->display();
     }

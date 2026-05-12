@@ -317,11 +317,11 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
             clearPathTags();
             
             // 清除起点终点标记
-            clearStartEndTags();
+            // clearStartEndTags();
             
             // 重置状态
-            startNode = nullptr;
-            endNode = nullptr;
+            // startNode = nullptr;
+            // endNode = nullptr;
             isPathCalculated = false;
             
             // 更新标签显示
@@ -382,7 +382,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
     while (screen.IsOpen() && shower.IsOpen()) {
         screen.Tick();
         screen.Draw();
-        shower.Tick();
+        shower.Tick(path, startNode, endNode);
     }
 
     screen.FreeAll();

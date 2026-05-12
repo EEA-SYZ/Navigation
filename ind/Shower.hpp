@@ -303,8 +303,6 @@ private:
             viewport.level
         );
 
-        std::clog << "level: " << viewport.level << std::endl;
-        
         double scaleX = window->getSize().x / viewport.getWidth();
         double scaleY = window->getSize().y / viewport.getHeight();
         

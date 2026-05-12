@@ -66,18 +66,9 @@ public:
     
     int getLevelNum() const { return levelNum; }
 
+    Edge *forFlow(Edge *edge) const;
 private:
-    bool addGraphEdge(
-        Graph &graph,
-        std::vector<Node*> &nodes,
-        int from,
-        int to,
-        int level,
-        int baseVolume,
-        int edgeIndex
-    );
     void initForFlow();
-    Edge *forFlow(Edge *edge);
 
     Graph graph;
     int leftBound, rightBound, bottomBound, topBound;

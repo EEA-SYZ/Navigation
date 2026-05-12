@@ -11,6 +11,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <set>
+#include <iostream>
 
 struct Node;
 struct Edge;

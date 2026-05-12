@@ -373,7 +373,8 @@ bool addGraphEdge(
     int to,
     int level,
     int baseVolume,
-    int edgeIndex
+    int edgeIndex,
+    const DataMaker *self
 ) {
     if (from == to || from < 0 || to < 0 ||
         from >= static_cast<int>(nodes.size()) ||
@@ -442,8 +443,8 @@ bool addGraphEdge(
     
     u->edges.emplace_back(edge);
     v->edges.emplace_back(revEdge);
-    graph.second.insert(forFlow(edge));
-    graph.second.insert(forFlow(revEdge));
+    graph.second.insert(self->forFlow(edge));
+    graph.second.insert(self->forFlow(revEdge));
     return true;
 }
 
@@ -602,7 +603,8 @@ void addKruskalConnectivityEdges(
     std::unordered_set<unsigned long long> &usedEdges,
     EdgeSpatialIndex &edgeIndex,
     int edgeTarget,
-    int baseVolume
+    int baseVolume,
+    const DataMaker *self
 ) {
     std::vector<CandidateEdge> ordered = candidates;
     // 在 Gabriel 候选边上运行 Kruskal，替代全量 Prim，生成连通骨架。
@@ -625,7 +627,8 @@ void addKruskalConnectivityEdges(
             candidate.toIndex,
             candidate.level,
             baseVolume,
-            static_cast<int>(graph.second.size())
+            static_cast<int>(graph.second.size()),
+            self
         )) {
             usedEdges.insert(edgeKey(candidate.fromIndex, candidate.toIndex));
             edgeIndex.add(candidate.fromIndex, candidate.toIndex);
@@ -642,7 +645,8 @@ void generateHierarchicalEdges(
     double left,
     double right,
     double bottom,
-    double top
+    double top,
+    const DataMaker *self
 ) {
     if (nodes.size() <= 1 || edgeTarget <= 0) {
         return;
@@ -707,7 +711,8 @@ void generateHierarchicalEdges(
         usedEdges,
         edgeIndex,
         edgeTarget,
-        baseVolume
+        baseVolume,
+        self
     );
     if (static_cast<int>(graph.second.size()) >= edgeTarget) {
         return;
@@ -742,7 +747,8 @@ void generateHierarchicalEdges(
             candidate.toIndex,
             candidate.level,
             baseVolume,
-            static_cast<int>(graph.second.size())
+            static_cast<int>(graph.second.size()),
+            self
         )) {
             usedEdges.insert(key);
             edgeIndex.add(candidate.fromIndex, candidate.toIndex);
@@ -779,7 +785,8 @@ void generateHierarchicalEdges(
             candidate.toIndex,
             candidate.level,
             baseVolume,
-            static_cast<int>(graph.second.size())
+            static_cast<int>(graph.second.size()),
+            self
         )) {
             usedEdges.insert(key);
             edgeIndex.add(candidate.fromIndex, candidate.toIndex);
@@ -976,7 +983,7 @@ DataMaker::DataMaker(
 
     // 根据层级地址生成边：先保证连通，再补充局部/核心/跨区候选边
     generateHierarchicalEdges(
-        this->graph,
+        graph,
         nodes,
         edge_num * 2,
         level_volume,
@@ -984,7 +991,8 @@ DataMaker::DataMaker(
         left,
         right,
         bottom,
-        top
+        top,
+        this
     );
 
     // 将生成节点加入图中
@@ -1018,28 +1026,31 @@ int DataMaker::queryCurrentFlowInEdge(const Edge *edge)
 
 void DataMaker::initForFlow()
 {
-    pnV.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pn1.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pn2.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pnAh.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pnTh.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pnPh.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pnAl.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pnTl.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
-    pnPl.init((rightBound - leftBound) / 100 + 1, (topBound - bottomBound) / 100 + 1, 100);
+    pnV.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pn1.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pn2.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pnAh.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pnTh.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pnPh.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pnAl.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pnTl.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    pnPl.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
 }
 
-Edge *DataMaker::forFlow(Edge *edge)
+Edge *DataMaker::forFlow(Edge *edge) const
 {
-    edge->volume = (pnV.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 * 500;
+    edge->volume = (pnV.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 * 300 + 200;
     edge->p1 = (pn1.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *     3.8 + 0.2;
     edge->p2 = (pn2.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *     0.7 + 0.5;
-    edge->Ah = (pnAh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    70 + 140;
-    edge->Th = (pnTh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    15 + 15;
+    edge->Ah = (pnAh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    20;
+    edge->Th = (pnTh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    15000000 + 15000000;
     edge->Ph = (pnPh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    2 * PI;
     edge->Al = (pnAl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    40 + 20;
-    edge->Tl = (pnTl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    3 + 2;
+    edge->Tl = (pnTl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    3000000 + 2000000;
     edge->Pl = (pnPl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    2 * PI;
+
+    edge->Ah = edge->volume / 2 - edge->Ah;
+
     return edge;
 }
 
@@ -1114,5 +1125,7 @@ PerlinNoise::~PerlinNoise()
 
 double PerlinNoise::lerp(double t)
 {
+    if (t < 0) return 0;
+    if (t > 1) return 1;
     return 3 * t * t - 2 * t * t * t;
 }

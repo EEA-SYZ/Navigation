@@ -23,9 +23,8 @@ private:
     int width, height;
     double block_size;
     std::vector<std::vector<sf::Vector2f>> noiseMap;
-    double lerp(sf::Vector2f a, sf::Vector2f b, sf::Vector2f ga, sf::Vector2f gb, double t) const;
     double lerp(double t) const;
-    double lerp(double a, double b, double t) const;
+    
     std::mt19937 gen{std::random_device{}()};
     std::uniform_real_distribution<double> dis{0, 1};
 };

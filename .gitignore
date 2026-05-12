@@ -7,3 +7,4 @@ requirment.txt
 build
 src/test/data_manager_check.o
 main/main.exe
+test/*.exe

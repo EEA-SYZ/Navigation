@@ -7,6 +7,8 @@
 
 #include <functional>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 // 视口结构体
 struct Viewport {
@@ -39,8 +41,8 @@ public:
         dataMaker = new DataMaker(0, mapWidth, 0, mapHeight, nodeCount, edgeCount, levelNum, levelVolume);
         dataManager = new DataManager(dataMaker->getGraph());
         shortestPathAlgorithm = new ShortestPathAlgorithm(dataMaker->getGraph());
-        shortestPathAlgorithm->setFlowQueryInterface([this](const Edge *edge) {
-            return dataMaker->queryCurrentFlowInEdge(edge);
+        shortestPathAlgorithm->setFlowQueryInterface([this](const Edge *edge, double k_for_time) {
+            return dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
         });
         
         // 创建SFML窗口
@@ -63,7 +65,7 @@ public:
         return shortestPathAlgorithm->queryShortestPath(start, end);
     }
     Graph queryShortestTimePath(const Node *start, const Node *end) {
-        return shortestPathAlgorithm->queryShortestTimePath(start, end);
+        return shortestPathAlgorithm->queryShortestTimePath(start, end, k_for_time);
     }
     
     // 获取viewport的引用
@@ -175,6 +177,8 @@ public:
     }
     
 private:
+
+    double k_for_time = 1.0;
     
     // 数据成员
     DataMaker* dataMaker = nullptr;
@@ -351,7 +355,7 @@ private:
                 lineShape.setFillColor(sf::Color(255, 0, 0));  // 红色表示路径
             } else {
                 // 根据流量计算颜色：流量少->绿色，流量多->红色，中间黄橙过渡
-                int currentFlow = dataMaker->queryCurrentFlowInEdge(edge);
+                int currentFlow = dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
                 double ratio = static_cast<double>(currentFlow) / edge->volume;
                 
                 // 平滑颜色插值：绿(0,255,0) -> 黄(255,255,0) -> 橙(255,165,0) -> 红(255,0,0)
@@ -399,6 +403,37 @@ private:
             arrow.setPoint(2, arrowBack - rightNormal * arrowWidth);
             arrow.setFillColor(arrowColor);
             window->draw(arrow);
+            
+            // 绘制流量/容量占比标注
+            int currentFlow = dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
+            double ratio = static_cast<double>(currentFlow) / edge->volume;
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(2) << ratio << " " << static_cast<int>(edge->Ah + edge->Al) << " " << edge->volume;
+            sf::Font font;
+            static bool fontLoaded = false;
+            static sf::Font staticFont;
+            if (!fontLoaded) {
+                if (staticFont.loadFromFile("C:/Windows/Fonts/arial.ttf")) {
+                    font = staticFont;
+                    fontLoaded = true;
+                }
+            }
+            if (fontLoaded) {
+                sf::Text text;
+                text.setFont(staticFont);
+                text.setString(oss.str());
+                text.setCharacterSize(std::max(10, static_cast<int>(lineThickness * 4)));
+                text.setFillColor(sf::Color::Black);
+                text.setOutlineColor(sf::Color::White);
+                text.setOutlineThickness(1);
+                
+                // 计算文字位置（在线段中点）
+                sf::Vector2f midPoint = (adjustedStart + adjustedEnd) / 2.0f;
+                sf::FloatRect bounds = text.getLocalBounds();
+                text.setOrigin(bounds.width / 2.0f, bounds.height / 2.0f);
+                text.setPosition(midPoint);
+                window->draw(text);
+            }
         })
         
         // 绘制节点

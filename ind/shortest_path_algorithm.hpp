@@ -24,10 +24,10 @@ public:
      * @param end 结束节点
      * @return Graph 路径图，包含路径上的节点集合和边集合
      */
-    Graph queryShortestTimePath(const Node *start, const Node *end);
+    Graph queryShortestTimePath(const Node *start, const Node *end, double k_for_time);
 
     // 设置流量查询接口（用于获取边的当前流量）
-    void setFlowQueryInterface(std::function<int(const Edge*)> flowQueryFunc) {
+    void setFlowQueryInterface(std::function<int(const Edge*, double)> flowQueryFunc) {
         m_flowQueryFunc = flowQueryFunc;
     }
 
@@ -41,7 +41,7 @@ private:
     // 邻接表：节点 -> 连接的边列表
     std::unordered_map<const Node*, std::vector<const Edge*>> m_adjacencyList;
     // 流量查询函数
-    std::function<int(const Edge*)> m_flowQueryFunc;
+    std::function<int(const Edge*, double)> m_flowQueryFunc;
     // 全局最小p1参数获取函数
     std::function<double()> m_minP1Getter;
 
@@ -79,7 +79,7 @@ private:
      * @return 是否找到路径
      */
     bool aStarTime(const Node *start, const Node *end,
-                   std::unordered_map<const Node*, const Edge*> &cameFrom);
+                   std::unordered_map<const Node*, const Edge*> &cameFrom, double k_for_time);
 
     /**
      * @brief 从cameFrom中提取路径（同时包含节点和边）
@@ -96,7 +96,7 @@ private:
      * @param edge 边
      * @return 当前流量
      */
-    int getCurrentFlow(const Edge *edge) const;
+    int getCurrentFlow(const Edge *edge, double k_for_time) const;
 
     /**
      * @brief 获取全局最小p1参数

@@ -1016,38 +1016,40 @@ DataMaker::~DataMaker() {
     }
 }
 
-int DataMaker::queryCurrentFlowInEdge(const Edge *edge) 
+int DataMaker::queryCurrentFlowInEdge(const Edge *edge, double k_for_time) 
 {
-    auto t = clock.getElapsedTime().asMicroseconds();
-    auto h = edge->Ah * std::sin(2 * PI / edge->Th * t + edge->Ph) + edge->Ah;
-    auto l = edge->Al * std::sin(2 * PI / edge->Tl * t + edge->Pl) + edge->Al;
-    return static_cast<int>(h * l);
+    auto t = clock.getElapsedTime().asMilliseconds();
+    auto h = edge->Ah * std::sin(2 * PI / edge->Th * t * k_for_time + edge->Ph) + edge->Ah;
+    auto l = edge->Al * std::sin(2 * PI / edge->Tl * t * k_for_time + edge->Pl);
+    return std::max(0, static_cast<int>(h + l));
 }
 
 void DataMaker::initForFlow()
 {
-    pnV.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pn1.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pn2.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pnAh.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pnTh.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pnPh.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pnAl.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pnTl.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
-    pnPl.init(abs(rightBound - leftBound) / 100 + 1, abs(topBound - bottomBound) / 100 + 1, 100);
+    const double BLOCK_SIZE = 1000;
+    pnV.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pn1.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pn2.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnAh.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnTh.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnPh.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnAl.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnTl.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnPl.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
 }
 
 Edge *DataMaker::forFlow(Edge *edge) const
 {
-    edge->volume = (pnV.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 * 300 + 200;
-    edge->p1 = (pn1.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *     3.8 + 0.2;
-    edge->p2 = (pn2.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *     0.7 + 0.5;
-    edge->Ah = (pnAh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    20;
-    edge->Th = (pnTh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    15000000 + 15000000;
-    edge->Ph = (pnPh.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    2 * PI;
-    edge->Al = (pnAl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    40 + 20;
-    edge->Tl = (pnTl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    3000000 + 2000000;
-    edge->Pl = (pnPl.noise(edge->from->x, edge->from->y) + 71) / 71 / 2 *    2 * PI;
+    const double HST = 708;
+    edge->volume = (pnV.noise(edge->from->x, edge->from->y) + HST) / HST / 2 * 3000 + 2000;
+    edge->p1 = (pn1.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *     3.8 + 0.2;
+    edge->p2 = (pn2.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *     0.7 + 0.5;
+    edge->Ah = (pnAh.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    20;
+    edge->Th = (pnTh.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    15000 + 15000;
+    edge->Ph = (pnPh.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    2 * PI;
+    edge->Al = (pnAl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    40 + 20;
+    edge->Tl = (pnTl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    3000 + 2000;
+    edge->Pl = (pnPl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    2 * PI;
 
     edge->Ah = edge->volume / 2 - edge->Ah;
 

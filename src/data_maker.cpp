@@ -991,6 +991,7 @@ DataMaker::DataMaker(
 
     // initTrafficSimulator(edge_num * 10);
 
+    this->perlinNoise = new PerlinNoise(100, 100, 100);
     initForFlow();
 }
 
@@ -1007,8 +1008,11 @@ DataMaker::~DataMaker() {
     }
 }
 
-int DataMaker::queryCurrentFlowInEdge(const Edge *edge) {
-    ;
+int DataMaker::queryCurrentFlowInEdge(const Edge *edge) 
+{
+    auto x = (edge->from->x + edge->to->x) / 2;
+    auto y = (edge->from->y + edge->to->y) / 2;
+    return static_cast<int>(this->perlinNoise->noise(x, y));
 }
 
 void DataMaker::initForFlow()
@@ -1016,10 +1020,8 @@ void DataMaker::initForFlow()
     ;
 }
 
-PerlinNoise::PerlinNoise(int width, int height, double block_size, int seed)
+PerlinNoise::PerlinNoise(int width, int height, double block_size)
 {
-    srand(seed);
-
     this->width = width;
     this->height = height;
     this->block_size = block_size;

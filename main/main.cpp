@@ -204,7 +204,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
     };
 
     // 计算距离最短路按钮
-    ui::Button* distanceBtn = new ui::Button;
+    ui::Button* distanceBtn = new ui::Button;{
         distanceBtn->AddTo(btnBox);
         distanceBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         distanceBtn->SetCaption("距离最短");
@@ -230,7 +230,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
                 recalcBtn->SetVisible(true);
             }
         });
-    
+    }
     
     // 计算时间最短路按钮
     ui::Button* timeBtn = new ui::Button;{
@@ -390,7 +390,7 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
 
 int main() {
     // 创建窗口
-    ui::Screen screen(1200, 800, "地图参数设置");
+    ui::Screen screen(1500, 1000, "地图参数设置");
 
     int mapWidthInt = 0;
     int mapHeightInt = 0;

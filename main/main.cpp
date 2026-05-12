@@ -165,7 +165,85 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         btnBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         btnBox->SetGap(15);
     }
-
+    
+    // 创建坐标跳转区域
+    ui::HorizontalBox* jumpBox = new ui::HorizontalBox;{
+        jumpBox->AddTo(topBar);
+        jumpBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        jumpBox->SetGap(50);
+    }
+    ui::InputBox* jumpX = new ui::InputBox;{
+        jumpX->AddTo(jumpBox);
+        jumpX->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        jumpX->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
+        jumpX->SetSpecialCharacters(ui::InputBox::NUMBER);
+        jumpX->SetLengthLimit(6);
+        jumpX->SetText("");
+        jumpX->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
+        jumpX->SetHMinSize(100);
+    }
+    ui::InputBox* jumpY = new ui::InputBox;{
+        jumpY->AddTo(jumpBox);
+        jumpY->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        jumpY->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
+        jumpY->SetSpecialCharacters(ui::InputBox::NUMBER);
+        jumpY->SetLengthLimit(6);
+        jumpY->SetText("");
+        jumpY->SetContentLimit(ui::InputBox::ContentLimit::ALLOW_SPECIAL_CHARACTERS_ONLY);
+        jumpY->SetHMinSize(100);
+    }
+    ui::Button* jumpBtn = new ui::Button;{
+        jumpBtn->AddTo(jumpBox);
+        jumpBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        jumpBtn->SetCaption("跳转");
+        jumpBtn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            int targetX = 0;
+            int targetY = 0;
+            
+            std::string xStr = jumpX->GetText();
+            std::string yStr = jumpY->GetText();
+            
+            if (!xStr.empty()) {
+                targetX = std::stoi(xStr);
+            }
+            if (!yStr.empty()) {
+                targetY = std::stoi(yStr);
+            }
+            
+            // 获取当前viewport中心
+            double centerX = (shower.getViewport().left + shower.getViewport().right) / 2.0;
+            double centerY = (shower.getViewport().top + shower.getViewport().bottom) / 2.0;
+            
+            // 计算偏移量
+            double offsetX = targetX - centerX;
+            double offsetY = targetY - centerY;
+            
+            // 移动viewport
+            shower.moveViewport(offsetX, offsetY);
+        });
+    }
+    
+    // 创建强制层级区域
+    ui::HorizontalBox* levelBox = new ui::HorizontalBox;{
+        levelBox->AddTo(topBar);
+        levelBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        levelBox->SetGap(10);
+    }
+    ui::Label* levelLabel = new ui::Label("强制层级修改");{
+        levelLabel->AddTo(levelBox);
+        levelLabel->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+    }
+    for (int i = 0; i <= 4; ++i) {
+        ui::Button* levelBtn = new ui::Button;{
+            levelBtn->AddTo(levelBox);
+            levelBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+            levelBtn->SetCaption(std::to_string(i));
+            levelBtn->SetClickCallback([&, i](const std::string&, const sf::Event&) {
+                shower.setLevel(i);
+            });
+        }
+    }
+    
     // 清除路径标记函数
     auto clearPathTags = [&]() {
         for (const Node* node : path.first) {

@@ -7,6 +7,18 @@
 
 #include <functional>
 
+// 视口结构体
+struct Viewport {
+    double left;      // 左边界
+    double right;     // 右边界
+    double top;       // 上边界
+    double bottom;    // 下边界
+    int level;        // 当前层级
+    
+    double getWidth() const { return right - left; }
+    double getHeight() const { return top - bottom; }
+    void updateLevel(double t) { const auto &b = 1.5; level = t > b * b * b * b ? 4 : t > b * b * b ? 3 : t > b * b ? 2 : t > b ? 1 : 0; }
+};
 // Shower类 - 封装地图显示功能
 class Shower {
 public:
@@ -40,6 +52,26 @@ public:
     }
     Graph queryShortestTimePath(const Node *start, const Node *end) {
         return shortestPathAlgorithm->queryShortestTimePath(start, end);
+    }
+    
+    // 获取viewport的引用
+    const Viewport& getViewport() const {
+        return viewport;
+    }
+    
+    // 移动viewport
+    void moveViewport(double offsetX, double offsetY) {
+        viewport.left += offsetX;
+        viewport.right += offsetX;
+        viewport.top += offsetY;
+        viewport.bottom += offsetY;
+    }
+    
+    // 强制设置level
+    void setLevel(int level) {
+        if (level >= 0 && level <= 4) {
+            viewport.level = level;
+        }
     }
     
     ~Shower() 
@@ -126,18 +158,6 @@ public:
     }
     
 private:
-    // 视口结构体
-    struct Viewport {
-        double left;      // 左边界
-        double right;     // 右边界
-        double top;       // 上边界
-        double bottom;    // 下边界
-        int level;        // 当前层级
-        
-        double getWidth() const { return right - left; }
-        double getHeight() const { return top - bottom; }
-        void updateLevel(double t) { const auto &b = 1.5; level = t > b * b * b * b ? 4 : t > b * b * b ? 3 : t > b * b ? 2 : t > b ? 1 : 0; }
-    };
     
     // 数据成员
     DataMaker* dataMaker = nullptr;

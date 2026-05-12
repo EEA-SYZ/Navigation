@@ -292,7 +292,32 @@ private:
             if (Tag::instance()[edge]["onpath"] == "1") {
                 lineShape.setFillColor(sf::Color(255, 0, 0));  // 红色表示路径
             } else {
-                lineShape.setFillColor(sf::Color(100, 100, 100));
+                // 根据流量计算颜色：流量少->绿色，流量多->红色，中间黄橙过渡
+                int currentFlow = dataMaker->queryCurrentFlowInEdge(edge);
+                double ratio = static_cast<double>(currentFlow) / edge->volume;
+                
+                // 平滑颜色插值：绿(0,255,0) -> 黄(255,255,0) -> 橙(255,165,0) -> 红(255,0,0)
+                sf::Color color;
+                if (ratio <= 0.33) {
+                    // 绿色到黄色的过渡 (0-0.33)
+                    double t = ratio / 0.33;
+                    color.r = static_cast<sf::Uint8>(0 + t * 255);
+                    color.g = 255;
+                    color.b = 0;
+                } else if (ratio <= 0.67) {
+                    // 黄色到橙色的过渡 (0.33-0.67)
+                    double t = (ratio - 0.33) / 0.34;
+                    color.r = 255;
+                    color.g = static_cast<sf::Uint8>(255 - t * 90);
+                    color.b = 0;
+                } else {
+                    // 橙色到红色的过渡 (0.67-1.0)
+                    double t = (ratio - 0.67) / 0.33;
+                    color.r = 255;
+                    color.g = static_cast<sf::Uint8>(165 - t * 165);
+                    color.b = 0;
+                }
+                lineShape.setFillColor(color);
             }
             lineShape.setPosition(adjustedStart);
             lineShape.setRotation(std::atan2(adjustedDirection.y, adjustedDirection.x) * 180 / PI);

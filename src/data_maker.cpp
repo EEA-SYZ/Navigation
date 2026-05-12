@@ -959,7 +959,8 @@ DataMaker::DataMaker(
     double left, double right, double top, double bottom,
     int node_num, int edge_num, 
     int level_num, int level_volume
-) {
+) : leftBound(left), rightBound(right), topBound(top), bottomBound(bottom)
+{
     std::vector<Node*> nodes;
     double r = 0;
 
@@ -989,6 +990,8 @@ DataMaker::DataMaker(
     }
 
     // initTrafficSimulator(edge_num * 10);
+
+    initForFlow();
 }
 
 const Graph &DataMaker::getGraph() {
@@ -1005,5 +1008,88 @@ DataMaker::~DataMaker() {
 }
 
 int DataMaker::queryCurrentFlowInEdge(const Edge *edge) {
-    return 0;
+    ;
+}
+
+void DataMaker::initForFlow()
+{
+    ;
+}
+
+PerlinNoise::PerlinNoise(int width, int height, double block_size, int seed)
+{
+    srand(seed);
+
+    this->width = width;
+    this->height = height;
+    this->block_size = block_size;
+
+    noiseMap.resize(width, std::vector<sf::Vector2f>(height, sf::Vector2f(0, 0)));
+
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < height; ++j) {
+            noiseMap[i][j] = sf::Vector2f(2 * dis(gen) - 1, 2 * dis(gen) - 1);
+        }
+    }
+}
+
+double PerlinNoise::noise(double x, double y) const
+{
+    if (x < 0 || x >= width * block_size || y < 0 || y >= height * block_size) {
+        return 0.0;
+    }
+
+    x /= block_size;
+    y /= block_size;
+    int xi = std::floor(x);
+    int yi = std::floor(y);
+    
+    auto xrb = xi + 1;
+    auto yrb = yi;
+
+    auto xrt = xi + 1;
+    auto yrt = yi + 1;
+
+    auto xlt = xi;
+    auto ylt = yi + 1;
+
+    auto xlb = xi;
+    auto ylb = yi;
+    
+    auto t = (x - xlb * block_size) / block_size;
+    auto btm = lerp(
+        sf::Vector2f(xlb * block_size, ylb * block_size), 
+        sf::Vector2f(xrb * block_size, yrb * block_size), 
+        noiseMap[xlb][ylb], noiseMap[xrb][ylb], lerp(t));    
+    auto top = lerp(
+        sf::Vector2f(xlt * block_size, ylt * block_size), 
+        sf::Vector2f(xrt * block_size, yrt * block_size), 
+        noiseMap[xlt][ylt], noiseMap[xrt][yrt], lerp(t));
+
+    return lerp(btm, top, lerp((y - ylb * block_size) / block_size));
+}
+
+PerlinNoise::~PerlinNoise()
+{
+    ;
+}
+
+double PerlinNoise::lerp(sf::Vector2f a, sf::Vector2f b, sf::Vector2f ga, sf::Vector2f gb, double t) const
+{
+    auto v = b - a;
+    auto m = sf::Vector2f(v.x * t, v.y * t);
+
+    auto pro = [](sf::Vector2f a, sf::Vector2f b){ return a.x * b.x + a.y * b.y; };
+
+    return pro(m - a, ga) * (1 - lerp(t)) + pro(m - b, gb) * lerp(t);
+}
+
+double PerlinNoise::lerp(double t) const
+{
+    return 3 * t * t + 2 * t * t * t;
+}
+
+double PerlinNoise::lerp(double a, double b, double t) const
+{
+    return a * (1 - lerp(t)) + b * lerp(t);
 }

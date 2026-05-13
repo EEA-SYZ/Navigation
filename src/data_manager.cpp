@@ -8,7 +8,6 @@ DataManager::DataManager(const Graph& graph)
 
 void DataManager::initCellData(const Graph& graph)
 {
-    int nodeNum=graph.first.size();    
     //计算边界
     //处理空值
     if(graph.first.empty())

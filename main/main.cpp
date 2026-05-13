@@ -307,6 +307,13 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         flowRatioBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
         flowRatioBtn->SetOn(true);
     }
+    ui::ToggleButton* gridBtn = new ui::ToggleButton("显示网格", "grid",
+        [&](const std::string&, const sf::Event&) { shower.showGrid = true; },
+        [&](const std::string&, const sf::Event&) { shower.showGrid = false; });{
+        gridBtn->AddTo(topBar);
+        gridBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        gridBtn->SetOn(true);
+    }
     
     // 清除路径标记函数
     auto clearPathTags = [&]() {

@@ -181,6 +181,7 @@ public:
 
     double k_for_time = 1.0;
     bool showFlowRatio = true;
+    bool showGrid = true;
     
 private:
     
@@ -317,7 +318,86 @@ private:
         float lineThickness = std::max(1.5f, static_cast<float>(scaleX * 2));
         float nodeRadius = std::max(10.0f, static_cast<float>(scaleX * 10));
         float outlineThickness = std::max(2.0f, static_cast<float>(scaleX * 3));
-        float edgeOffset = std::max(5.0, 5.0f * scaleX);  // 边的偏移量，避免双向边重合
+        float edgeOffset = std::max(5.0, 5.0f * scaleX);
+
+
+        // 绘制网格
+        if (showGrid) {
+            double viewWidth = viewport.getWidth();
+            double viewHeight = viewport.getHeight();
+            double baseGridSize = 100.0;
+            double gridSize = baseGridSize;
+            while (viewWidth / gridSize < 8 && gridSize >= 1) {
+                gridSize /= 2;
+            }
+            while (viewWidth / gridSize > 25) {
+                gridSize *= 2;
+            }
+            
+            sf::Color gridColor(200, 200, 200);
+            float gridThickness = std::max(1.5f, static_cast<float>(1 * 0.5));
+            
+            sf::Font gridFont;
+            static bool gridFontLoaded = false;
+            static sf::Font staticGridFont;
+            if (!gridFontLoaded) {
+                if (staticGridFont.loadFromFile("C:/Windows/Fonts/arial.ttf")) {
+                    gridFont = staticGridFont;
+                    gridFontLoaded = true;
+                }
+            }
+            int fontSize = std::max(18, static_cast<int>(24 * 1 / 20));
+            
+            double startX = std::floor(viewport.left / gridSize) * gridSize;
+            double endX = std::ceil(viewport.right / gridSize) * gridSize;
+            double startY = std::floor(viewport.bottom / gridSize) * gridSize;
+            double endY = std::ceil(viewport.top / gridSize) * gridSize;
+            
+            for (double x = startX; x <= endX; x += gridSize) {
+                float screenX = static_cast<float>((x - viewport.left) * scaleX);
+                
+                sf::RectangleShape vLine(sf::Vector2f(gridThickness, static_cast<float>(window->getSize().y)));
+                vLine.setFillColor(gridColor);
+                vLine.setPosition(screenX - gridThickness / 2, 0);
+                window->draw(vLine);
+                
+                if (gridFontLoaded) {
+                    sf::Text coordText;
+                    coordText.setFont(staticGridFont);
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(0) << x;
+                    coordText.setString(oss.str());
+                    coordText.setCharacterSize(fontSize);
+                    coordText.setFillColor(sf::Color(130, 130, 130));
+                    coordText.setOrigin(0, 0);
+                    coordText.setPosition(screenX + 3, 3);
+                    window->draw(coordText);
+                }
+            }
+            
+            for (double y = startY; y <= endY; y += gridSize) {
+                float screenY = static_cast<float>((viewport.top - y) * scaleY);
+                
+                sf::RectangleShape hLine(sf::Vector2f(static_cast<float>(window->getSize().x), gridThickness));
+                hLine.setFillColor(gridColor);
+                hLine.setPosition(0, screenY - gridThickness / 2);
+                window->draw(hLine);
+                
+                if (gridFontLoaded) {
+                    sf::Text coordText;
+                    coordText.setFont(staticGridFont);
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(0) << y;
+                    coordText.setString(oss.str());
+                    coordText.setCharacterSize(fontSize);
+                    coordText.setFillColor(sf::Color(130, 130, 130));
+                    sf::FloatRect bounds = coordText.getLocalBounds();
+                    coordText.setOrigin(0, bounds.height);
+                    coordText.setPosition(3, screenY - 3);
+                    window->draw(coordText);
+                }
+            }
+        }
 
         // 绘制边
         __FF(for (const Edge* edge : currentGraph.second), 

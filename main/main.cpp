@@ -273,6 +273,41 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
         }
     }
     
+    // k_for_time 调节区域
+    ui::HorizontalBox* kBox = new ui::HorizontalBox;{
+        kBox->AddTo(topBar);
+        kBox->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        kBox->SetGap(10);
+    }
+    ui::Label* kLabel = new ui::Label("时间倍率: 1.00");{
+        kLabel->AddTo(kBox);
+        kLabel->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+    }
+    ui::HorizontalScrollBar* kBar = new ui::HorizontalScrollBar;{
+        kBar->AddTo(kBox);
+        kBar->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        kBar->SetHMinSize(500);
+        kBar->SetVMinSize(50);
+        const double kMin = 0.0;
+        const double kMax = 10.0;
+        const int kBarRange = 1000;
+        kBar->SetPort(50);
+        kBar->SetSum(kBarRange + 50);
+        kBar->SetRate(static_cast<int>((shower.k_for_time - kMin) / (kMax - kMin) * kBarRange));
+        kBar->SetScrollCallback([&](const std::string&, const sf::Event&) {
+            double kVal = kMin + static_cast<double>(kBar->GetRate()) / kBarRange * (kMax - kMin);
+            shower.k_for_time = kVal;
+            kLabel->SetContent("时间倍率: " + std::to_string(kVal).substr(0, 4));
+        });
+    }
+    ui::ToggleButton* flowRatioBtn = new ui::ToggleButton("显示流量占比", "flowRatio", 
+        [&](const std::string&, const sf::Event&) { shower.showFlowRatio = true; },
+        [&](const std::string&, const sf::Event&) { shower.showFlowRatio = false; });{
+        flowRatioBtn->AddTo(topBar);
+        flowRatioBtn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        flowRatioBtn->SetOn(true);
+    }
+    
     // 清除路径标记函数
     auto clearPathTags = [&]() {
         for (const Node* node : path.first) {

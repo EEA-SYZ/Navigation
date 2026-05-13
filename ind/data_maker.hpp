@@ -27,8 +27,10 @@ private:
     double block_size;
     std::vector<std::vector<sf::Vector2f>> noiseMap;
     
+    const double NL = 0.7;
     std::mt19937 gen{std::random_device{}()};
     std::uniform_real_distribution<double> dis{0, 1};
+    std::normal_distribution<double> norm{(1 + NL) / 2, (1 - NL) / 2};
 };
 
 class DataMaker {
@@ -83,7 +85,18 @@ private:
     PerlinNoise pnTl;
     PerlinNoise pnPl;
 
+    PerlinNoise LpnV;
+    PerlinNoise Lpn1;
+    PerlinNoise Lpn2;
+    PerlinNoise LpnAh;
+    PerlinNoise LpnTh;
+    PerlinNoise LpnPh;
+    PerlinNoise LpnAl;
+    PerlinNoise LpnTl;
+    PerlinNoise LpnPl;
+
     sf::Clock clock;
+    double elapsedTime = 0;
 };
 
 /**

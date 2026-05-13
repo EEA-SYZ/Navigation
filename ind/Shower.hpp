@@ -41,7 +41,7 @@ public:
         dataMaker = new DataMaker(0, mapWidth, 0, mapHeight, nodeCount, edgeCount, levelNum, levelVolume);
         dataManager = new DataManager(dataMaker->getGraph());
         shortestPathAlgorithm = new ShortestPathAlgorithm(dataMaker->getGraph());
-        shortestPathAlgorithm->setFlowQueryInterface([this](const Edge *edge, double k_for_time) {
+        shortestPathAlgorithm->setFlowQueryInterface([this](const Edge *edge) {
             return dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
         });
         
@@ -65,7 +65,7 @@ public:
         return shortestPathAlgorithm->queryShortestPath(start, end);
     }
     Graph queryShortestTimePath(const Node *start, const Node *end) {
-        return shortestPathAlgorithm->queryShortestTimePath(start, end, k_for_time);
+        return shortestPathAlgorithm->queryShortestTimePath(start, end);
     }
     
     // 获取viewport的引用
@@ -175,10 +175,11 @@ public:
     void SetNodeClickCallback(std::function<void(const Node*)> callback) {
         nodeClickCallback = std::move(callback);
     }
-    
-private:
 
     double k_for_time = 1.0;
+    bool showFlowRatio = true;
+    
+private:
     
     // 数据成员
     DataMaker* dataMaker = nullptr;
@@ -405,10 +406,11 @@ private:
             window->draw(arrow);
             
             // 绘制流量/容量占比标注
+            if (showFlowRatio) {
             int currentFlow = dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
             double ratio = static_cast<double>(currentFlow) / edge->volume;
             std::ostringstream oss;
-            oss << std::fixed << std::setprecision(2) << ratio << " " << static_cast<int>(edge->Ah + edge->Al) << " " << edge->volume;
+            oss << std::fixed << std::setprecision(2) << ratio << "%";
             sf::Font font;
             static bool fontLoaded = false;
             static sf::Font staticFont;
@@ -433,6 +435,7 @@ private:
                 text.setOrigin(bounds.width / 2.0f, bounds.height / 2.0f);
                 text.setPosition(midPoint);
                 window->draw(text);
+            }
             }
         })
         

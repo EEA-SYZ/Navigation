@@ -14,9 +14,9 @@ double ShortestPathAlgorithm::euclideanDistance(const Node *a, const Node *b) co
     return std::sqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
 }
 
-int ShortestPathAlgorithm::getCurrentFlow(const Edge *edge, double k_for_time) const {
+int ShortestPathAlgorithm::getCurrentFlow(const Edge *edge) const {
     if (m_flowQueryFunc) {
-        return m_flowQueryFunc(edge, k_for_time);
+        return m_flowQueryFunc(edge);
     }
     return 0; // 默认返回0
 }
@@ -81,7 +81,7 @@ bool ShortestPathAlgorithm::aStarDistance(const Node *start, const Node *end,
 }
 
 bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
-                                      std::unordered_map<const Node*, const Edge*> &cameFrom, double k_for_time) {
+                                      std::unordered_map<const Node*, const Edge*> &cameFrom) {
     if (start == end) return true;
 
     // 优先队列：f值最小的节点优先
@@ -112,7 +112,7 @@ bool ShortestPathAlgorithm::aStarTime(const Node *start, const Node *end,
         for (const Edge *edge : it->second) {
             const Node *neighbor = edge->to;
             // 获取当前边的车流量，计算实际用时
-            int flow = getCurrentFlow(edge, k_for_time);
+            int flow = getCurrentFlow(edge);
             double tentativeG = gScore[current] + edge->getTime(flow);
 
             if (gScore.find(neighbor) == gScore.end() || tentativeG < gScore[neighbor]) {
@@ -167,9 +167,9 @@ Graph ShortestPathAlgorithm::queryShortestPath(const Node *start, const Node *en
     return {};
 }
 
-Graph ShortestPathAlgorithm::queryShortestTimePath(const Node *start, const Node *end, double k_for_time) {
+Graph ShortestPathAlgorithm::queryShortestTimePath(const Node *start, const Node *end) {
     std::unordered_map<const Node*, const Edge*> cameFrom;
-    if (aStarTime(start, end, cameFrom, k_for_time)) {
+    if (aStarTime(start, end, cameFrom)) {
         return reconstructPath(start, end, cameFrom);
     }
     return {};

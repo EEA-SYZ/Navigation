@@ -438,7 +438,13 @@ def main() -> None:
         graph = GraphData(points, [])
     points = graph.points
     edges = graph.edges
-    closest = nearest_distance(points)
+
+    closest = None
+
+    if len(points) > 5000:
+        print(f"skipped nearest distance calculation for {len(points)} nodes")
+    else:
+        closest = nearest_distance(points)
     if args.stdin:
         print(f"loaded from stdin: {len(points)} nodes, {len(edges)} edges")
     elif args.input_csv:
@@ -446,6 +452,7 @@ def main() -> None:
     else:
         print(f"generated: {len(points)} / {args.count}")
         print(f"radius: {radius:.4f}")
+
     if closest is not None:
         print(f"nearest distance: {closest:.4f}")
 

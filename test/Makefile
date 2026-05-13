@@ -2,15 +2,16 @@ CXX := g++
 PYTHON := python
 
 CXXFLAGS := -std=c++17 -O2
+LDFLAGS := -L../lib -lsfml-system -lsfml-window -lsfml-graphics -lsfml-audio -lsfml-network
 
 POINT_SRC := poisson_points.cpp
-DATA_MAKER_SRC := ../data_maker.cpp
-DATA_MAKER_HDR := ../../ind/data_maker.hpp ../../ind/global.hpp
+DATA_MAKER_SRC := ../src/data_maker.cpp
+DATA_MAKER_HDR := ../ind/data_maker.hpp ../ind/global.hpp ../ind/SFML/*.hpp
 POINT_BIN := graph.exe
 POINT_IMG := poisson_preview.png
 SMALL_POINT_IMG := poisson_preview_small.png
 LEVELS := 5
-POINT_ARGS := -n 10000 -e 25000 --levels $(LEVELS)
+POINT_ARGS := -n 20000 -e 36000 --levels $(LEVELS)
 SMALL_POINT_ARGS := -n 2000 -e 4000 --levels $(LEVELS)
 
 .PHONY: all points points_view points_view_small clean
@@ -21,7 +22,7 @@ all: points_view
 points: $(POINT_BIN)
 
 $(POINT_BIN): $(POINT_SRC) $(DATA_MAKER_SRC) $(DATA_MAKER_HDR)
-	$(CXX) $(CXXFLAGS) -I../../ind $(POINT_SRC) $(DATA_MAKER_SRC) -o $@
+	$(CXX) $(CXXFLAGS) -I../ind $(POINT_SRC) $(DATA_MAKER_SRC) -o $@ $(LDFLAGS)
 
 points_view: points
 	./$(POINT_BIN) $(POINT_ARGS) | $(PYTHON) poisson_preview.py --stdin --save $(POINT_IMG) --no-show

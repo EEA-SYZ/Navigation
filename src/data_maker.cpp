@@ -1099,16 +1099,9 @@ void PerlinNoise::init(int width, int height, double block_size)
 
     for (int i = 0; i <= width; ++i) {
         for (int j = 0; j <= height; ++j) {
-            do {
-                noiseMap[i][j] = sf::Vector2f(2 * dis(gen) - 1, 2 * dis(gen) - 1);
-            } while (noiseMap[i][j] == sf::Vector2f(0, 0));
-            double t = [](sf::Vector2f v){
-                 return sqrt(v.x * v.x + v.y * v.y); 
-            }(noiseMap[i][j]);
-            noiseMap[i][j] = sf::Vector2f(noiseMap[i][j].x / t, noiseMap[i][j].y / t);
-            auto [x, y] = noiseMap[i][j];
             auto d = std::max(NL, std::min(1., norm(gen)));
-            noiseMap[i][j] = sf::Vector2f(x * d, y * d);
+            auto a = dis(gen) * 2 * PI;
+            noiseMap[i][j] = sf::Vector2f(d * std::cos(a), d * std::sin(a));
         }
     }
 }
@@ -1160,5 +1153,5 @@ double PerlinNoise::lerp(double t)
 {
     if (t < 0) return 0;
     if (t > 1) return 1;
-    return 3 * t * t - 2 * t * t * t;
+    return 6 * pow(t, 5) - 15 * pow(t, 4) + 10 * pow(t, 3);
 }

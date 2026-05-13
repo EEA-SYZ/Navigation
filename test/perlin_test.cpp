@@ -10,6 +10,8 @@ int main()
     double width = 100;
     double height = 100;
     double blockSize = 2;
+    std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
 
     std::cin >> width >> height >> blockSize;
     

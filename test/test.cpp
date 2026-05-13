@@ -158,14 +158,14 @@ void sameConstructorTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    assert(dataManager.getColNums()==1);
-    assert(dataManager.getRowNums()==1);
+    assert(dataManager.getColNums()==2);
+    assert(dataManager.getRowNums()==2);
     assert(dataManager.getLeftBound()==-0.5);
     assert(dataManager.getRightBound()==0.5);
     assert(dataManager.getTopBound()==0.5);
     assert(dataManager.getBottomBound()==-0.5);
-    assert(dataManager.getCellWidth()==1);
-    assert(dataManager.getCellHeight()==1);
+    assert(dataManager.getCellWidth()==0.5);
+    assert(dataManager.getCellHeight()==0.5);
     dataManager.printCellBucket();
     for(auto it:nodes)
     {

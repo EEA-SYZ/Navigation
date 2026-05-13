@@ -6,5 +6,6 @@ plan.md
 requirment.txt
 build
 src/test/data_manager_check.o
+report
 main/main.exe
 test/*.exe

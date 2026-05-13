@@ -2,17 +2,12 @@
 
 DataManager::DataManager(const Graph& graph)
 {
-    graphManager=graph;
     initCellData(graph);
     initHash(graph);
 }
 
 void DataManager::initCellData(const Graph& graph)
 {
-    int nodeNum=graph.first.size();    
-    //floor向下取整，ceil向上取整
-    colNums=std::max(1,(int)std::floor(sqrt(nodeNum)));
-    rowNums=std::max(1,(int)std::floor(sqrt(nodeNum)));
     //计算边界
     //处理空值
     if(graph.first.empty())
@@ -63,17 +58,22 @@ void DataManager::initCellData(const Graph& graph)
     {
         leftBound-=0.5;
         rightBound+=0.5;
-        colNums=1;
     }
-    cellWidth=(rightBound-leftBound)/colNums;
     if(bottomBound == topBound)
     {
         bottomBound-=0.5;
         topBound+=0.5;
-        rowNums=1;
     }
-    cellHeight=(topBound-bottomBound)/rowNums;
-    
+    double width=rightBound-leftBound;
+    double hight=topBound-bottomBound;
+    double r=std::sqrt((width*hight*0.45)/this->countNode(graph));
+    //理论网格大小
+    double cellSize=r*1.5;
+    rowNums=std::max(1,(int)std::ceil(hight/cellSize));
+    colNums=std::max(1,(int)std::ceil(width/cellSize));
+    cellWidth=width/colNums;
+    cellHeight=hight/rowNums;
+    return;
 }
 
 void DataManager::initHash(const Graph& graph)
@@ -105,7 +105,8 @@ std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,
     int xmax=std::max(left,right);
     int ymin=std::min(bottom,top);
     int ymax=std::max(bottom,top);
-    //可能有负数，不能int直接截断
+    //可能有负数，不能int直接截断,[i,i+1)
+    //视口对应的网格行列
     int leftCol=(int) std::floor((xmin-leftBound)/cellWidth);
     int rightCol=(int) std::floor((xmax-leftBound)/cellWidth);
     int topRow=(int) std::floor((ymax-bottomBound)/cellHeight);
@@ -123,6 +124,7 @@ std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,
             {
                 for(const auto& node:it->second)
                 {
+                    //判断是否在视口内，细过滤
                     if(node->x>=xmin && node->x<=xmax && node->y>=ymin && node->y<=ymax)
                     {
                         nodeIn.push_back(node);
@@ -137,7 +139,7 @@ std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,
 Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom, int level)
 {
     std::vector<const Node*> nodeList=nodeInViewPort(left,right,top,bottom,0);
-    std::set<const Node*> nodeSet;
+    std::unordered_set<const Node*> copyNodeSet;
     //{address[level],node}
     std::unordered_map<int,const Node*> nodeByGroup;
     //{address[level],distance}
@@ -153,7 +155,7 @@ Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom,
     }
     if(level <= 0)
     {
-        nodeSet=std::set<const Node*>(nodeList.begin(),nodeList.end());
+        copyNodeSet.insert(nodeList.begin(),nodeList.end());
     }
     else{
         
@@ -197,12 +199,12 @@ Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom,
         }
         for(auto node:nodeByGroup)
         {
-            nodeSet.insert(node.second);
+            copyNodeSet.insert(node.second);
         }
     }
-
+    std::set<const Node*> nodeSet(copyNodeSet.begin(),copyNodeSet.end());
     std::set<const Edge*> edgeSet;
-    for(const auto& node:nodeSet)
+    for(const auto& node:copyNodeSet)
     {
         //跳过nullptr
         if (node == nullptr)
@@ -215,7 +217,7 @@ Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom,
             {
                 continue;
             }
-            if(nodeSet.find(edge->from) != nodeSet.end() && nodeSet.find(edge->to) != nodeSet.end())
+            if(copyNodeSet.find(edge->from) != copyNodeSet.end() && copyNodeSet.find(edge->to) != copyNodeSet.end())
             {
                 edgeSet.insert(edge);
             }
@@ -225,7 +227,7 @@ Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom,
 }
 
 
-NearestInfo DataManager::getNearestInfo(int col,int row,int level)
+NearestInfo DataManager::getNearestInfo(double col,double row,int level)
 {
     level=0;
     std::priority_queue<Distancecmp> nearestNode;
@@ -324,13 +326,13 @@ NearestInfo DataManager::getNearestInfo(int col,int row,int level)
     return nearestInfo;
 }
 
-Boundary DataManager::getNearest100NodesBounds(int col,int row,int level)
+Boundary DataManager::getNearest100NodesBounds(double col,double row,int level)
 {
     return getNearestInfo(col,row,0).bound;
 }
 
 
-const Node* DataManager::getNodeAt(int col,int row)
+const Node* DataManager::getNodeAt(double col,double row)
 {
     return getNearestInfo(col,row,0).nearestNode;
 }
@@ -368,4 +370,18 @@ std::pair<double,Cell> DataManager::cellCalculateDistance(int col,int row,double
 bool DataManager::isCellVisited(int col,int row,const std::unordered_set<Cell, pairHash>& visitedCells) const
 {
     return visitedCells.find({col,row})!=visitedCells.end();
+}
+
+
+int DataManager::countNode(const Graph& graph)
+{
+    int count=0;
+    for(auto node:graph.first)
+    {
+        if(node != nullptr)
+        {
+            count++;
+        }
+    }
+    return count;
 }

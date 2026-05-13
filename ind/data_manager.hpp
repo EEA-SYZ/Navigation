@@ -57,26 +57,24 @@ public:
      * @param level 查询的图的层级 
      * @return std::list<const Node*> 
      */
-    //todo 用上level
     std::vector<const Node*> nodeInViewPort(int left,int right,int top,int bottom,int level);
 
     /**
      * @brief 拿取指定坐标附近100个点的边界
      */
-    Boundary getNearest100NodesBounds(int col,int row,int level);
+    Boundary getNearest100NodesBounds(double coorCol,double coorRow,int level);
 
     /**
      * @brief 
      * 
      */
-    //todo 
-    const Node* getNodeAt(int col,int row);
+    const Node* getNodeAt(double coorCol,double coorRow);
 
     /**
      * @brief 
      * 
      */
-    NearestInfo getNearestInfo(int col,int row,int level);
+    NearestInfo getNearestInfo(double coorCol,double corrRow,int level);
 
     #ifdef DATA_MANAGER_TEST
     //测试函数所需公有函数
@@ -110,16 +108,15 @@ private:
     double rightBound;
     double topBound;
     double bottomBound;
-    //行数列数
+    //网格行数列数
     int colNums;
     int rowNums;
     std::unordered_map<std::pair<int,int>, std::vector<const Node*>, pairHash> cellBucket;
-    Graph graphManager;
     void initCellData(const Graph& graph);
     void initHash(const Graph& graph);
     std::pair<double,Cell> cellCalculateDistance(int col,int row,double centerX,double centerY) const;
     bool isCellVisited(int col,int row,const std::unordered_set<Cell, pairHash>& visitedCells) const;
-    Node* nearestNode;
+    int countNode(const Graph& graph);
 };
 
 #endif

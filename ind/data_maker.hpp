@@ -14,6 +14,25 @@
 #include "global.hpp"
 #include "SFML/System.hpp"
 
+class PerlinNoise {
+public:
+    PerlinNoise() = default;
+    PerlinNoise(int width, int height, double block_size);
+    void init(int width, int height, double block_size);
+    double noise(double x, double y) const;
+    ~PerlinNoise();
+    static double lerp(double t);
+private:
+    int width, height;
+    double block_size;
+    std::vector<std::vector<sf::Vector2f>> noiseMap;
+    
+    const double NL = 0.7;
+    std::mt19937 gen{std::random_device{}()};
+    std::uniform_real_distribution<double> dis{0, 1};
+    std::normal_distribution<double> norm{(1 + NL) / 2, (1 - NL) / 2};
+};
+
 class DataMaker {
 public:
     /**
@@ -45,29 +64,41 @@ public:
      * @param edge 边
      * @return 边的当前流量
      */
-    int queryCurrentFlowInEdge(const Edge *edge);
+    int queryCurrentFlowInEdge(const Edge *edge, double k_for_time);
+    
+    int getLevelNum() const { return levelNum; }
 
+    Edge *forFlow(Edge *edge);
+    double getMinP1() const;
 private:
     void initForFlow();
+    double minP1 = 2e9;
 
     Graph graph;
     int leftBound, rightBound, bottomBound, topBound;
-};
+    int levelNum;
+    PerlinNoise pnV;
+    PerlinNoise pn1;
+    PerlinNoise pn2;
+    PerlinNoise pnAh;
+    PerlinNoise pnTh;
+    PerlinNoise pnPh;
+    PerlinNoise pnAl;
+    PerlinNoise pnTl;
+    PerlinNoise pnPl;
 
-class PerlinNoise {
-public:
-    PerlinNoise(int width, int height, double block_size, int seed);
-    double noise(double x, double y) const;
-    ~PerlinNoise();
-private:
-    int width, height;
-    double block_size;
-    std::vector<std::vector<sf::Vector2f>> noiseMap;
-    double lerp(sf::Vector2f a, sf::Vector2f b, sf::Vector2f ga, sf::Vector2f gb, double t) const;
-    double lerp(double t) const;
-    double lerp(double a, double b, double t) const;
-    std::mt19937 gen{std::random_device{}()};
-    std::uniform_real_distribution<double> dis{0, 1};
+    PerlinNoise LpnV;
+    PerlinNoise Lpn1;
+    PerlinNoise Lpn2;
+    PerlinNoise LpnAh;
+    PerlinNoise LpnTh;
+    PerlinNoise LpnPh;
+    PerlinNoise LpnAl;
+    PerlinNoise LpnTl;
+    PerlinNoise LpnPl;
+
+    sf::Clock clock;
+    double elapsedTime = 0;
 };
 
 /**

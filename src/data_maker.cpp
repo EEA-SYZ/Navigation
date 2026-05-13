@@ -373,7 +373,8 @@ bool addGraphEdge(
     int to,
     int level,
     int baseVolume,
-    int edgeIndex
+    int edgeIndex,
+    DataMaker *self
 ) {
     if (from == to || from < 0 || to < 0 ||
         from >= static_cast<int>(nodes.size()) ||
@@ -442,8 +443,8 @@ bool addGraphEdge(
     
     u->edges.emplace_back(edge);
     v->edges.emplace_back(revEdge);
-    graph.second.insert(edge);
-    graph.second.insert(revEdge);
+    graph.second.insert(self->forFlow(edge));
+    graph.second.insert(self->forFlow(revEdge));
     return true;
 }
 
@@ -602,7 +603,8 @@ void addKruskalConnectivityEdges(
     std::unordered_set<unsigned long long> &usedEdges,
     EdgeSpatialIndex &edgeIndex,
     int edgeTarget,
-    int baseVolume
+    int baseVolume,
+    DataMaker *self
 ) {
     std::vector<CandidateEdge> ordered = candidates;
     // 在 Gabriel 候选边上运行 Kruskal，替代全量 Prim，生成连通骨架。
@@ -625,7 +627,8 @@ void addKruskalConnectivityEdges(
             candidate.toIndex,
             candidate.level,
             baseVolume,
-            static_cast<int>(graph.second.size())
+            static_cast<int>(graph.second.size()),
+            self
         )) {
             usedEdges.insert(edgeKey(candidate.fromIndex, candidate.toIndex));
             edgeIndex.add(candidate.fromIndex, candidate.toIndex);
@@ -642,7 +645,8 @@ void generateHierarchicalEdges(
     double left,
     double right,
     double bottom,
-    double top
+    double top,
+    DataMaker *self
 ) {
     if (nodes.size() <= 1 || edgeTarget <= 0) {
         return;
@@ -707,7 +711,8 @@ void generateHierarchicalEdges(
         usedEdges,
         edgeIndex,
         edgeTarget,
-        baseVolume
+        baseVolume,
+        self
     );
     if (static_cast<int>(graph.second.size()) >= edgeTarget) {
         return;
@@ -742,7 +747,8 @@ void generateHierarchicalEdges(
             candidate.toIndex,
             candidate.level,
             baseVolume,
-            static_cast<int>(graph.second.size())
+            static_cast<int>(graph.second.size()),
+            self
         )) {
             usedEdges.insert(key);
             edgeIndex.add(candidate.fromIndex, candidate.toIndex);
@@ -779,7 +785,8 @@ void generateHierarchicalEdges(
             candidate.toIndex,
             candidate.level,
             baseVolume,
-            static_cast<int>(graph.second.size())
+            static_cast<int>(graph.second.size()),
+            self
         )) {
             usedEdges.insert(key);
             edgeIndex.add(candidate.fromIndex, candidate.toIndex);
@@ -959,8 +966,11 @@ DataMaker::DataMaker(
     double left, double right, double top, double bottom,
     int node_num, int edge_num, 
     int level_num, int level_volume
-) : leftBound(left), rightBound(right), topBound(top), bottomBound(bottom)
+) : leftBound(left), rightBound(right), topBound(top), bottomBound(bottom), levelNum(level_num)
 {
+    clock.restart();
+    initForFlow();
+
     std::vector<Node*> nodes;
     double r = 0;
 
@@ -973,7 +983,7 @@ DataMaker::DataMaker(
 
     // 根据层级地址生成边：先保证连通，再补充局部/核心/跨区候选边
     generateHierarchicalEdges(
-        this->graph,
+        graph,
         nodes,
         edge_num * 2,
         level_volume,
@@ -981,17 +991,16 @@ DataMaker::DataMaker(
         left,
         right,
         bottom,
-        top
+        top,
+        this
     );
 
     // 将生成节点加入图中
-    for (const Node *node : nodes) {
+    for (Node *node : nodes) {
         this->graph.first.insert(node);
     }
 
     // initTrafficSimulator(edge_num * 10);
-
-    initForFlow();
 }
 
 const Graph &DataMaker::getGraph() {
@@ -1007,28 +1016,99 @@ DataMaker::~DataMaker() {
     }
 }
 
-int DataMaker::queryCurrentFlowInEdge(const Edge *edge) {
-    return 0;
+int DataMaker::queryCurrentFlowInEdge(const Edge *edge, double k_for_time) 
+{
+    auto d = clock.getElapsedTime().asMilliseconds();
+    clock.restart();
+    elapsedTime += d * k_for_time;
+
+    auto h = edge->Ah * std::sin(2 * PI / edge->Th * elapsedTime  + edge->Ph) + edge->Ah;
+    auto l = edge->Al * std::sin(2 * PI / edge->Tl * elapsedTime  + edge->Pl);
+    return std::max(0, static_cast<int>(h + l));
 }
 
 void DataMaker::initForFlow()
 {
-    ;
+    const double BLOCK_SIZE = 1000, LBLOCK_SIZE = 200;
+    pnV.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pn1.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pn2.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnAh.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnTh.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnPh.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnAl.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnTl.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+    pnPl.init(abs(rightBound - leftBound) / BLOCK_SIZE + 1, abs(topBound - bottomBound) / BLOCK_SIZE + 1, BLOCK_SIZE);
+
+    LpnV.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    Lpn1.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    Lpn2.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    LpnAh.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    LpnTh.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    LpnPh.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    LpnAl.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    LpnTl.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
+    LpnPl.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
 }
 
-PerlinNoise::PerlinNoise(int width, int height, double block_size, int seed)
+Edge *DataMaker::forFlow(Edge *edge)
 {
-    srand(seed);
+    const double HST = 708 + 15;
+    edge->volume = (pnV.noise(edge->from->x, edge->from->y) + 
+                    LpnV.noise(edge->from->x, edge->from->y) + HST) / HST / 2 * 3000 + 2000;
+    edge->p1 = (pn1.noise(edge->from->x, edge->from->y) +
+                Lpn1.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *     3.8 + 0.2;
+    edge->p2 = (pn2.noise(edge->from->x, edge->from->y) +
+                Lpn2.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *     0.9 + 0.2;
+    edge->Ah = (pnAh.noise(edge->from->x, edge->from->y) +
+                LpnAh.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    20;
+    edge->Th = (pnTh.noise(edge->from->x, edge->from->y) +
+                LpnTh.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    15000 + 15000;
+    edge->Ph = (pnPh.noise(edge->from->x, edge->from->y) +
+                LpnPh.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    2 * PI;
+    edge->Al = (pnAl.noise(edge->from->x, edge->from->y) +
+                LpnAl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    40 + 20;
+    edge->Tl = (pnTl.noise(edge->from->x, edge->from->y) +
+                LpnTl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    3000 + 2000;
+    edge->Pl = (pnPl.noise(edge->from->x, edge->from->y) +
+                LpnPl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    2 * PI;
 
+    edge->Ah = edge->volume / 2 - edge->Ah;
+    minP1 = std::min(minP1, edge->p1);
+
+    return edge;
+}
+
+double DataMaker::getMinP1() const
+{
+    return minP1;
+}
+
+PerlinNoise::PerlinNoise(int width, int height, double block_size)
+{
+    init(width, height, block_size);
+}
+
+void PerlinNoise::init(int width, int height, double block_size)
+{
     this->width = width;
     this->height = height;
     this->block_size = block_size;
 
-    noiseMap.resize(width, std::vector<sf::Vector2f>(height, sf::Vector2f(0, 0)));
+    noiseMap.resize(width + 1, std::vector<sf::Vector2f>(height + 1, sf::Vector2f(0, 0)));
 
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            noiseMap[i][j] = sf::Vector2f(2 * dis(gen) - 1, 2 * dis(gen) - 1);
+    for (int i = 0; i <= width; ++i) {
+        for (int j = 0; j <= height; ++j) {
+            do {
+                noiseMap[i][j] = sf::Vector2f(2 * dis(gen) - 1, 2 * dis(gen) - 1);
+            } while (noiseMap[i][j] == sf::Vector2f(0, 0));
+            double t = [](sf::Vector2f v){
+                 return sqrt(v.x * v.x + v.y * v.y); 
+            }(noiseMap[i][j]);
+            noiseMap[i][j] = sf::Vector2f(noiseMap[i][j].x / t, noiseMap[i][j].y / t);
+            auto [x, y] = noiseMap[i][j];
+            auto d = std::max(NL, std::min(1., norm(gen)));
+            noiseMap[i][j] = sf::Vector2f(x * d, y * d);
         }
     }
 }
@@ -1039,34 +1119,36 @@ double PerlinNoise::noise(double x, double y) const
         return 0.0;
     }
 
-    x /= block_size;
-    y /= block_size;
-    int xi = std::floor(x);
-    int yi = std::floor(y);
-    
-    auto xrb = xi + 1;
-    auto yrb = yi;
+    int xi = std::floor(x / block_size);
+    int yi = std::floor(y / block_size);
 
-    auto xrt = xi + 1;
-    auto yrt = yi + 1;
+    auto A = noiseMap[xi][yi];
+    auto B = noiseMap[xi + 1][yi];
+    auto C = noiseMap[xi][yi + 1];
+    auto D = noiseMap[xi + 1][yi + 1];
 
-    auto xlt = xi;
-    auto ylt = yi + 1;
+    sf::Vector2f p = sf::Vector2f(x, y);
+    double xlb = xi * block_size;
+    double ylb = yi * block_size;
+    sf::Vector2f lb = sf::Vector2f(xlb, ylb);
+    double xrb = xlb + block_size;
+    double yrb = ylb;
+    sf::Vector2f rb = sf::Vector2f(xrb, yrb);
+    double xrt = xlb + block_size;
+    double yrt = ylb + block_size;
+    sf::Vector2f rt = sf::Vector2f(xrt, yrt);
+    double xlt = xlb;
+    double ylt = ylb + block_size;
+    sf::Vector2f lt = sf::Vector2f(xlt, ylt);
 
-    auto xlb = xi;
-    auto ylb = yi;
-    
-    auto t = (x - xlb * block_size) / block_size;
-    auto btm = lerp(
-        sf::Vector2f(xlb * block_size, ylb * block_size), 
-        sf::Vector2f(xrb * block_size, yrb * block_size), 
-        noiseMap[xlb][ylb], noiseMap[xrb][ylb], lerp(t));    
-    auto top = lerp(
-        sf::Vector2f(xlt * block_size, ylt * block_size), 
-        sf::Vector2f(xrt * block_size, yrt * block_size), 
-        noiseMap[xlt][ylt], noiseMap[xrt][yrt], lerp(t));
+    double t = lerp((x - xlb) / block_size);
+    double tu = lerp((y - ylb) / block_size);
 
-    return lerp(btm, top, lerp((y - ylb * block_size) / block_size));
+    auto prod = [](sf::Vector2f a, sf::Vector2f b){
+        return a.x * b.x + a.y * b.y;
+    };
+
+    return (1 - tu) * ((1 - t) * prod(p - lb, A) + t * prod(p - rb, B)) + tu * ((1 - t) * prod(p - lt, C) + t * prod(p - rt, D));
 }
 
 PerlinNoise::~PerlinNoise()
@@ -1074,22 +1156,9 @@ PerlinNoise::~PerlinNoise()
     ;
 }
 
-double PerlinNoise::lerp(sf::Vector2f a, sf::Vector2f b, sf::Vector2f ga, sf::Vector2f gb, double t) const
+double PerlinNoise::lerp(double t)
 {
-    auto v = b - a;
-    auto m = sf::Vector2f(v.x * t, v.y * t);
-
-    auto pro = [](sf::Vector2f a, sf::Vector2f b){ return a.x * b.x + a.y * b.y; };
-
-    return pro(m - a, ga) * (1 - lerp(t)) + pro(m - b, gb) * lerp(t);
-}
-
-double PerlinNoise::lerp(double t) const
-{
-    return 3 * t * t + 2 * t * t * t;
-}
-
-double PerlinNoise::lerp(double a, double b, double t) const
-{
-    return a * (1 - lerp(t)) + b * lerp(t);
+    if (t < 0) return 0;
+    if (t > 1) return 1;
+    return 3 * t * t - 2 * t * t * t;
 }

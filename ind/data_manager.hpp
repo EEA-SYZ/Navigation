@@ -119,7 +119,7 @@ private:
     /**
      * @brief 均匀网格哈希拿候选点
      */
-    std::vector<const Node*> nodeInViewPort(int left,int right,int top,int bottom,int level);
+    std::vector<const Node*> nodeInViewPort(int left,int right,int top,int bottom,int level) const;
 };
 
 #endif

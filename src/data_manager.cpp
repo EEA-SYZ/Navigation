@@ -97,7 +97,7 @@ DataManager::~DataManager()
     cellBucket.clear();
 }
 
-std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,int bottom,int level)
+std::vector<const Node*> DataManager::nodeInViewPort(int left,int right,int top,int bottom,int level) const
 {
     level=0;
     std::vector<const Node*> nodeIn;

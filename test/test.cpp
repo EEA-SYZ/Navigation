@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <iostream>
 
 const bool LAB_TEST=true;
 
@@ -24,7 +25,9 @@ void nodeInViewPortNullNodeTest();
 void getNearest100NodesBoundsBasicTest();
 void getNearest100NodesBoundsExactly100Test();
 void getNearest100NodesBoundsLevelCompatibilityTest();
-void getNodeAtTest();
+void queryNearest100SubgraphBasicTest();
+void queryNearest100SubgraphExactly100Test();
+void queryNearest100SubgraphNullEdgeTest();
 
 void queryDataInViewportLevel0BasicTest();
 void queryDataInViewportBoundaryConsistencyTest();
@@ -58,7 +61,9 @@ int main()
         getNearest100NodesBoundsBasicTest();
         getNearest100NodesBoundsExactly100Test();
         getNearest100NodesBoundsLevelCompatibilityTest();
-        getNodeAtTest();
+        queryNearest100SubgraphBasicTest();
+        queryNearest100SubgraphExactly100Test();
+        queryNearest100SubgraphNullEdgeTest();
 
         queryDataInViewportLevel0BasicTest();
         queryDataInViewportBoundaryConsistencyTest();
@@ -201,7 +206,7 @@ void nodeInViewPortBasicTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-1,3,2,-1,0);
+    auto result=dataManager.getNodesInViewPort(-1,3,2,-1,0);
     assert(result.size()==3);
     assert((collectNodeNames(result)==std::set<std::string>{"A","B","E"}));
     for(auto it:nodes)
@@ -222,7 +227,7 @@ void nodeInViewPortReverseBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(3,-1,-1,2,0);
+    auto result=dataManager.getNodesInViewPort(3,-1,-1,2,0);
     assert(result.size()==3);
     assert((collectNodeNames(result)==std::set<std::string>{"A","B","E"}));
     for(auto it:nodes)
@@ -243,7 +248,7 @@ void nodeInViewPortOnBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(0,2,1,0,0);
+    auto result=dataManager.getNodesInViewPort(0,2,1,0,0);
     assert(result.size()==2);
     assert((collectNodeNames(result)==std::set<std::string>{"A","B"}));
     for(auto it:nodes)
@@ -264,7 +269,7 @@ void nodeInViewPortOutsideBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(6,7,7,6,0);
+    auto result=dataManager.getNodesInViewPort(6,7,7,6,0);
     assert(result.empty());
     for(auto it:nodes)
     {
@@ -284,7 +289,7 @@ void nodeInViewPortOutsideGraphTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-100,1,1,-100,0);
+    auto result=dataManager.getNodesInViewPort(-100,1,1,-100,0);
     assert(result.size()==1);
     assert((collectNodeNames(result)==std::set<std::string>{"A"}));
     for(auto it:nodes)
@@ -305,7 +310,7 @@ void nodeInViewPortOnGraphTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-100,0,3,-100,0);
+    auto result=dataManager.getNodesInViewPort(-100,0,3,-100,0);
     assert(result.size()==2);
     assert((collectNodeNames(result)==std::set<std::string>{"A","D"}));
     for(auto it:nodes)
@@ -326,7 +331,7 @@ void nodeInViewPortOverlapBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(10,10,10,10,0);
+    auto result=dataManager.getNodesInViewPort(10,10,10,10,0);
     assert(result.size()==1);
     assert((collectNodeNames(result)==std::set<std::string>{"F"}));
     for(auto it:nodes)
@@ -347,7 +352,7 @@ void nodeInViewPortNullNodeTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-2,0,3,0,0);
+    auto result=dataManager.getNodesInViewPort(-2,0,3,0,0);
     assert(result.size()==2);
     assert((collectNodeNames(result)==std::set<std::string>{"A","D"}));
     for(auto it:nodes)
@@ -425,22 +430,109 @@ void getNearest100NodesBoundsLevelCompatibilityTest()
     }
 }
 
-void getNodeAtTest()
+void queryNearest100SubgraphBasicTest()
 {
-    std::set<const Node*> nodes={
-        new Node{"A", {}, 0, 0, {0}},
-        new Node{"B", {}, 5, 0, {1}},
-        new Node{"C", {}, 4, 4, {2}}
-    };
+    Node* a=new Node{"A", {}, 0, 0, {0}};
+    Node* b=new Node{"B", {}, 2, 0, {1}};
+    Node* c=new Node{"C", {}, 4, 0, {2}};
+    Node* d=new Node{"D", {}, 8, 0, {3}};
+    Edge* ab=new Edge{"AB", a, b, 2.0, 100, 1.0, 1.0};
+    Edge* bc=new Edge{"BC", b, c, 2.0, 100, 1.0, 1.0};
+    Edge* cd=new Edge{"CD", c, d, 4.0, 100, 1.0, 1.0};
+    Edge* bd=new Edge{"BD", b, d, 6.0, 100, 1.0, 1.0};
+    a->edges.push_back(ab);
+    b->edges.push_back(ab);
+    b->edges.push_back(bc);
+    c->edges.push_back(bc);
+    c->edges.push_back(cd);
+    d->edges.push_back(cd);
+    b->edges.push_back(bd);
+    d->edges.push_back(bd);
+
+    Graph graph={{a,b,c,d},{ab,bc,cd,bd}};
+    DataManager dataManager(graph);
+    auto result=dataManager.queryNearest100Subgraph(0,0,0);
+    assert((collectNodeNames(result)==std::set<std::string>{"A","B","C","D"}));
+    assert((collectEdgeNames(result)==std::set<std::string>{"AB","BC","BD","CD"}));
+
+    delete a;
+    delete b;
+    delete c;
+    delete d;
+    delete ab;
+    delete bc;
+    delete cd;
+    delete bd;
+}
+
+void queryNearest100SubgraphExactly100Test()
+{
+    std::set<const Node*> nodes;
+    for(int i=1;i<=101;i++)
+    {
+        std::string suffix=std::to_string(i);
+        if(i<10)
+        {
+            suffix="00"+suffix;
+        }
+        else if(i<100)
+        {
+            suffix="0"+suffix;
+        }
+        nodes.insert(new Node{"K"+suffix, {}, 0.1*i, 0, {i}});
+    }
+    nodes.insert(new Node{"L", {}, -100, 0, {102}});
+    nodes.insert(new Node{"R", {}, 100, 0, {103}});
+    nodes.insert(new Node{"T", {}, 0, 100, {104}});
+    nodes.insert(new Node{"B", {}, 0, -100, {105}});
+
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    const Node* node=dataManager.getNodeAt(4,3);
-    assert(node != nullptr);
-    assert(node->name=="C");
+    auto result=dataManager.queryNearest100Subgraph(0,0,0);
+    assert(result.first.size()==100);
+    assert(result.second.empty());
+
+    std::set<std::string> nodeNames=collectNodeNames(result);
+    assert(nodeNames.find("K101") == nodeNames.end());
+    assert(nodeNames.find("L") == nodeNames.end());
+    assert(nodeNames.find("R") == nodeNames.end());
+    assert(nodeNames.find("T") == nodeNames.end());
+    assert(nodeNames.find("B") == nodeNames.end());
+
     for(auto it:nodes)
     {
         delete it;
     }
+}
+
+void queryNearest100SubgraphNullEdgeTest()
+{
+    Node* a=new Node{"A", {}, 0, 0, {0}};
+    Node* b=new Node{"B", {}, 1, 0, {1}};
+    Node* c=new Node{"C", {}, 2, 0, {2}};
+    Edge* validEdge=new Edge{"AB", a, b, 1.0, 100, 1.0, 1.0};
+    Edge* nullFromEdge=new Edge{"XB", nullptr, b, 1.0, 100, 1.0, 1.0};
+    Edge* nullToEdge=new Edge{"AY", a, nullptr, 1.0, 100, 1.0, 1.0};
+
+    a->edges.push_back(validEdge);
+    a->edges.push_back(nullptr);
+    a->edges.push_back(nullToEdge);
+    b->edges.push_back(validEdge);
+    b->edges.push_back(nullFromEdge);
+    c->edges.push_back(nullptr);
+
+    Graph graph={{a,b,c},{validEdge, nullFromEdge, nullToEdge}};
+    DataManager dataManager(graph);
+    auto result=dataManager.queryNearest100Subgraph(0,0,0);
+    assert((collectNodeNames(result)==std::set<std::string>{"A","B","C"}));
+    assert((collectEdgeNames(result)==std::set<std::string>{"AB"}));
+
+    delete a;
+    delete b;
+    delete c;
+    delete validEdge;
+    delete nullFromEdge;
+    delete nullToEdge;
 }
 
 void queryDataInViewportLevel0BasicTest()

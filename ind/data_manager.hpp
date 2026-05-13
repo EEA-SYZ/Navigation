@@ -3,7 +3,6 @@
 
 #include "global.hpp"
 #include <queue>
-#include <iostream>
 #include <unordered_set>
 #include <climits>
 #include <tuple>
@@ -20,6 +19,7 @@ struct NearestInfo
 {
     Boundary bound;
     const Node* nearestNode;
+    std::vector<const Node*> nearestNodes;
 };
 
 
@@ -48,33 +48,16 @@ public:
         int left, int right, int top, int bottom, int level
     );
 
-    /**
-     * @brief 均匀网格哈希拿候选点
-     * @param left 视口的左边界
-     * @param right 视口的右边界
-     * @param top 视口的上边界 
-     * @param bottom 视口的下边界 
-     * @param level 查询的图的层级 
-     * @return std::list<const Node*> 
-     */
-    std::vector<const Node*> nodeInViewPort(int left,int right,int top,int bottom,int level);
-
+    
     /**
      * @brief 拿取指定坐标附近100个点的边界
      */
     Boundary getNearest100NodesBounds(double coorCol,double coorRow,int level);
 
     /**
-     * @brief 
-     * 
+     * @brief 查询指定坐标附近100个点及其相关联的边
      */
-    const Node* getNodeAt(double coorCol,double coorRow);
-
-    /**
-     * @brief 
-     * 
-     */
-    NearestInfo getNearestInfo(double coorCol,double corrRow,int level);
+    Graph queryNearest100Subgraph(double coorCol,double coorRow,int level);
 
     #ifdef DATA_MANAGER_TEST
     //测试函数所需公有函数
@@ -97,6 +80,9 @@ public:
     double getBottomBound() const { return bottomBound; }
     int getColNums() const { return colNums; }
     int getRowNums() const { return rowNums; }
+    std::vector<const Node*> getNodesInViewPort(int left,int right,int top,int bottom,int level) const{
+        return nodeInViewPort(left,right,top,bottom,level);
+    }
     #endif
 
 private:
@@ -114,9 +100,26 @@ private:
     std::unordered_map<std::pair<int,int>, std::vector<const Node*>, pairHash> cellBucket;
     void initCellData(const Graph& graph);
     void initHash(const Graph& graph);
+    /**
+     * @brief 计算网格到中心点的距离
+     */
     std::pair<double,Cell> cellCalculateDistance(int col,int row,double centerX,double centerY) const;
+    /**
+     * @brief 检查网格是否已访问
+     */
     bool isCellVisited(int col,int row,const std::unordered_set<Cell, pairHash>& visitedCells) const;
+    /**
+     * @brief 统计节点数量
+     */
     int countNode(const Graph& graph);
+    /**
+     * @brief 查询指定坐标附近100个点的综合信息
+     */
+    NearestInfo getNearestInfo(double coorCol,double coorRow,int level);
+    /**
+     * @brief 均匀网格哈希拿候选点
+     */
+    std::vector<const Node*> nodeInViewPort(int left,int right,int top,int bottom,int level);
 };
 
 #endif

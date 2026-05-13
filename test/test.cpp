@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <iostream>
 
 const bool LAB_TEST=true;
 
@@ -201,7 +202,7 @@ void nodeInViewPortBasicTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-1,3,2,-1,0);
+    auto result=dataManager.getNodesInViewPort(-1,3,2,-1,0);
     assert(result.size()==3);
     assert((collectNodeNames(result)==std::set<std::string>{"A","B","E"}));
     for(auto it:nodes)
@@ -222,7 +223,7 @@ void nodeInViewPortReverseBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(3,-1,-1,2,0);
+    auto result=dataManager.getNodesInViewPort(3,-1,-1,2,0);
     assert(result.size()==3);
     assert((collectNodeNames(result)==std::set<std::string>{"A","B","E"}));
     for(auto it:nodes)
@@ -243,7 +244,7 @@ void nodeInViewPortOnBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(0,2,1,0,0);
+    auto result=dataManager.getNodesInViewPort(0,2,1,0,0);
     assert(result.size()==2);
     assert((collectNodeNames(result)==std::set<std::string>{"A","B"}));
     for(auto it:nodes)
@@ -264,7 +265,7 @@ void nodeInViewPortOutsideBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(6,7,7,6,0);
+    auto result=dataManager.getNodesInViewPort(6,7,7,6,0);
     assert(result.empty());
     for(auto it:nodes)
     {
@@ -284,7 +285,7 @@ void nodeInViewPortOutsideGraphTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-100,1,1,-100,0);
+    auto result=dataManager.getNodesInViewPort(-100,1,1,-100,0);
     assert(result.size()==1);
     assert((collectNodeNames(result)==std::set<std::string>{"A"}));
     for(auto it:nodes)
@@ -305,7 +306,7 @@ void nodeInViewPortOnGraphTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-100,0,3,-100,0);
+    auto result=dataManager.getNodesInViewPort(-100,0,3,-100,0);
     assert(result.size()==2);
     assert((collectNodeNames(result)==std::set<std::string>{"A","D"}));
     for(auto it:nodes)
@@ -326,7 +327,7 @@ void nodeInViewPortOverlapBoundaryTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(10,10,10,10,0);
+    auto result=dataManager.getNodesInViewPort(10,10,10,10,0);
     assert(result.size()==1);
     assert((collectNodeNames(result)==std::set<std::string>{"F"}));
     for(auto it:nodes)
@@ -347,7 +348,7 @@ void nodeInViewPortNullNodeTest()
     };
     Graph graph={nodes,{}};
     DataManager dataManager(graph);
-    auto result=dataManager.nodeInViewPort(-2,0,3,0,0);
+    auto result=dataManager.getNodesInViewPort(-2,0,3,0,0);
     assert(result.size()==2);
     assert((collectNodeNames(result)==std::set<std::string>{"A","D"}));
     for(auto it:nodes)
@@ -419,24 +420,6 @@ void getNearest100NodesBoundsLevelCompatibilityTest()
     auto level0=dataManager.getNearest100NodesBounds(0,0,0);
     auto level3=dataManager.getNearest100NodesBounds(0,0,3);
     assert(level0==level3);
-    for(auto it:nodes)
-    {
-        delete it;
-    }
-}
-
-void getNodeAtTest()
-{
-    std::set<const Node*> nodes={
-        new Node{"A", {}, 0, 0, {0}},
-        new Node{"B", {}, 5, 0, {1}},
-        new Node{"C", {}, 4, 4, {2}}
-    };
-    Graph graph={nodes,{}};
-    DataManager dataManager(graph);
-    const Node* node=dataManager.getNodeAt(4,3);
-    assert(node != nullptr);
-    assert(node->name=="C");
     for(auto it:nodes)
     {
         delete it;

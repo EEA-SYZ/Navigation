@@ -235,8 +235,32 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
             double offsetX = targetX - centerX;
             double offsetY = targetY - centerY;
             
-            // 移动viewport
-            shower.moveViewport(offsetX, offsetY);
+             // 移动viewport
+             shower.moveViewport(offsetX, offsetY);
+         });
+     }
+    ui::Button* jump100Btn = new ui::Button;{
+        jump100Btn->AddTo(jumpBox);
+        jump100Btn->SetPreset(ui::Control::Preset::WRAP_AT_CENTER);
+        jump100Btn->SetCaption("查找附近的100个点");
+        jump100Btn->SetClickCallback([&](const std::string&, const sf::Event&) {
+            double targetX = 0;
+            double targetY = 0;
+
+            std::string xStr = jumpX->GetText();
+            std::string yStr = jumpY->GetText();
+
+            if (!xStr.empty()) {
+                targetX = std::stod(xStr);
+            }
+            if (!yStr.empty()) {
+                targetY = std::stod(yStr);
+            }
+
+            Boundary bound = shower.getNearest100NodesBounds(targetX, targetY);
+            auto [left, right, top, bottom] = bound;
+            shower.highlightNearest100Nodes(targetX, targetY);
+            shower.setViewportBounds(left, right, top, bottom);
         });
     }
     

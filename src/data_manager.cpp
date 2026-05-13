@@ -226,7 +226,6 @@ Graph DataManager::queryDataInViewport(int left, int right, int top, int bottom,
     return {nodeSet,edgeSet};
 }
 
-
 NearestInfo DataManager::getNearestInfo(double col,double row,int level)
 {
     level=0;
@@ -311,6 +310,7 @@ NearestInfo DataManager::getNearestInfo(double col,double row,int level)
         {
             nearestInfo.nearestNode=node.second;
         }
+        nearestInfo.nearestNodes.push_back(node.second);
         nearestNode.pop();
         minX=std::min(node.second->x,minX);
         maxX=std::max(node.second->x,maxX);
@@ -328,13 +328,39 @@ NearestInfo DataManager::getNearestInfo(double col,double row,int level)
 
 Boundary DataManager::getNearest100NodesBounds(double col,double row,int level)
 {
-    return getNearestInfo(col,row,0).bound;
+    return getNearestInfo(col,row,level).bound;
 }
 
-
-const Node* DataManager::getNodeAt(double col,double row)
+Graph DataManager::queryNearest100Subgraph(double col,double row,int level)
 {
-    return getNearestInfo(col,row,0).nearestNode;
+    NearestInfo nearestInfo=getNearestInfo(col,row,level);
+    std::unordered_set<const Node*> nodeFastSet(
+        nearestInfo.nearestNodes.begin(),
+        nearestInfo.nearestNodes.end()
+    );
+    std::set<const Node*> nodeSet(nodeFastSet.begin(),nodeFastSet.end());
+    std::set<const Edge*> edgeSet;
+
+    for(const auto& node:nodeFastSet)
+    {
+        if (node == nullptr)
+        {
+            continue;
+        }
+        for(const auto& edge:node->edges)
+        {
+            if (edge == nullptr || edge->from == nullptr || edge->to == nullptr)
+            {
+                continue;
+            }
+            if(nodeFastSet.find(edge->from) != nodeFastSet.end() &&
+               nodeFastSet.find(edge->to) != nodeFastSet.end())
+            {
+                edgeSet.insert(edge);
+            }
+        }
+    }
+    return {nodeSet,edgeSet};
 }
 
 std::pair<double,Cell> DataManager::cellCalculateDistance(int col,int row,double centerX,double centerY) const

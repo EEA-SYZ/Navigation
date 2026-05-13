@@ -83,6 +83,33 @@ public:
         viewport.top += offsetY;
         viewport.bottom += offsetY;
     }
+
+    Boundary getNearest100NodesBounds(double x, double y) const {
+        return dataManager->getNearest100NodesBounds(x, y, 0);
+    }
+
+    void setViewportBounds(double left, double right, double top, double bottom) {
+        viewport.left = left;
+        viewport.right = right;
+        viewport.top = top;
+        viewport.bottom = bottom;
+        viewport.level = 0;
+    }
+
+    void highlightNearest100Nodes(double x, double y) {
+        clearNearest100Tags();
+        Graph nearGraph = dataManager->queryNearest100Subgraph(x, y, 0);
+        for (const Node* node : nearGraph.first) {
+            if (node == nullptr) continue;
+            Tag::instance()[node]["near100"] = "1";
+            highlightedNearestNodes.insert(node);
+        }
+        for (const Edge* edge : nearGraph.second) {
+            if (edge == nullptr) continue;
+            Tag::instance()[edge]["near100"] = "1";
+            highlightedNearestEdges.insert(edge);
+        }
+    }
     
     // 强制设置level
     void setLevel(int level) {
@@ -198,6 +225,8 @@ private:
     double oldWindowHeight;
     
     Graph currentGraph;  // 当前画面中的图
+    std::set<const Node*> highlightedNearestNodes;
+    std::set<const Edge*> highlightedNearestEdges;
     
     // 拖拽相关
     bool isDragging;
@@ -296,6 +325,18 @@ private:
             }
         })
         return nullptr;
+    }
+
+    void clearNearest100Tags()
+    {
+        for (const Node* node : highlightedNearestNodes) {
+            Tag::instance()[node].erase("near100");
+        }
+        highlightedNearestNodes.clear();
+        for (const Edge* edge : highlightedNearestEdges) {
+            Tag::instance()[edge].erase("near100");
+        }
+        highlightedNearestEdges.clear();
     }
     
     // 绘制地图
@@ -437,6 +478,10 @@ private:
             // 检查是否在路径上
             if (0 && Tag::instance()[edge]["onpath"] == "1") {
                 lineShape.setFillColor(sf::Color(255, 0, 0));  // 红色表示路径
+            } else if (Tag::instance()[edge]["near100"] == "1") {
+                currentThickness = lineThickness * 2.2f;
+                lineShape.setSize(sf::Vector2f(adjustedLength, currentThickness));
+                lineShape.setFillColor(sf::Color(144, 238, 144));  // 浅绿色表示F1高亮边
             } else {
                 // 根据流量计算颜色：流量少->绿色，流量多->红色，中间黄橙过渡
                 int currentFlow = dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
@@ -551,6 +596,12 @@ private:
             else if (Tag::instance()[node]["onpath"] == "1") {
                 circle.setFillColor(sf::Color(255, 215, 0));  // 金色表示路径上的节点
                 circle.setOutlineColor(sf::Color(218, 165, 32));
+                circle.setOutlineThickness(2);
+            }
+            // 检查是否为附近100点高亮
+            else if (Tag::instance()[node]["near100"] == "1") {
+                circle.setFillColor(sf::Color(135, 206, 250));  // 浅蓝色高亮
+                circle.setOutlineColor(sf::Color(30, 120, 200));
                 circle.setOutlineThickness(2);
             }
             // 普通节点

@@ -68,9 +68,11 @@ public:
     
     int getLevelNum() const { return levelNum; }
 
-    Edge *forFlow(Edge *edge) const;
+    Edge *forFlow(Edge *edge);
+    double getMinP1() const;
 private:
     void initForFlow();
+    double minP1 = 2e9;
 
     Graph graph;
     int leftBound, rightBound, bottomBound, topBound;

@@ -374,7 +374,7 @@ bool addGraphEdge(
     int level,
     int baseVolume,
     int edgeIndex,
-    const DataMaker *self
+    DataMaker *self
 ) {
     if (from == to || from < 0 || to < 0 ||
         from >= static_cast<int>(nodes.size()) ||
@@ -604,7 +604,7 @@ void addKruskalConnectivityEdges(
     EdgeSpatialIndex &edgeIndex,
     int edgeTarget,
     int baseVolume,
-    const DataMaker *self
+    DataMaker *self
 ) {
     std::vector<CandidateEdge> ordered = candidates;
     // 在 Gabriel 候选边上运行 Kruskal，替代全量 Prim，生成连通骨架。
@@ -646,7 +646,7 @@ void generateHierarchicalEdges(
     double right,
     double bottom,
     double top,
-    const DataMaker *self
+    DataMaker *self
 ) {
     if (nodes.size() <= 1 || edgeTarget <= 0) {
         return;
@@ -1051,7 +1051,7 @@ void DataMaker::initForFlow()
     LpnPl.init(abs(rightBound - leftBound) / LBLOCK_SIZE + 1, abs(topBound - bottomBound) / LBLOCK_SIZE + 1, LBLOCK_SIZE);
 }
 
-Edge *DataMaker::forFlow(Edge *edge) const
+Edge *DataMaker::forFlow(Edge *edge)
 {
     const double HST = 708 + 15;
     edge->volume = (pnV.noise(edge->from->x, edge->from->y) + 
@@ -1074,8 +1074,14 @@ Edge *DataMaker::forFlow(Edge *edge) const
                 LpnPl.noise(edge->from->x, edge->from->y) + HST) / HST / 2 *    2 * PI;
 
     edge->Ah = edge->volume / 2 - edge->Ah;
+    minP1 = std::min(minP1, edge->p1);
 
     return edge;
+}
+
+double DataMaker::getMinP1() const
+{
+    return minP1;
 }
 
 PerlinNoise::PerlinNoise(int width, int height, double block_size)

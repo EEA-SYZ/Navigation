@@ -44,6 +44,9 @@ public:
         shortestPathAlgorithm->setFlowQueryInterface([this](const Edge *edge) {
             return dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
         });
+        shortestPathAlgorithm->setMinP1Getter([this]() {
+            return dataMaker->getMinP1();
+        });
         
         // 创建SFML窗口
         window = new sf::RenderWindow(sf::VideoMode(1200, 800), L"地图可视化");

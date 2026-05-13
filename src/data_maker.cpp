@@ -189,25 +189,6 @@ bool segmentsIntersect(const Node *a, const Node *b, const Node *c, const Node *
            pointOnSegment(b, c, d);
 }
 
-bool edgeWouldCrossGraph(const Graph &graph, const Node *u, const Node *v) {
-    for (const Edge *edge : graph.second) {
-        if (edge == nullptr || edge->from == nullptr || edge->to == nullptr) {
-            continue;
-        }
-
-        // Sharing an endpoint is a normal planar adjacency, not a crossing.
-        if (edge->from == u || edge->from == v || edge->to == u || edge->to == v) {
-            continue;
-        }
-
-        if (segmentsIntersect(u, v, edge->from, edge->to)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 class EdgeSpatialIndex {
 public:
     EdgeSpatialIndex(
@@ -676,7 +657,7 @@ void generateHierarchicalEdges(
     double width = std::max(right - left, 1.0);
     double height = std::max(top - bottom, 1.0);
     double diagonal = std::sqrt(width * width + height * height);
-    double nominalRadius = std::max(baseRadius, std::sqrt(width * height / std::max(1, nodeCount)));
+    double nominalRadius = std::min(baseRadius, std::sqrt(width * height / std::max(1, nodeCount)));
     NodeSpatialGrid pointGrid(left, right, bottom, top, std::max(nominalRadius, 1.0));
     // 标记边覆盖的网格
     EdgeSpatialIndex edgeIndex(
@@ -685,7 +666,7 @@ void generateHierarchicalEdges(
         right,
         bottom,
         top,
-        std::max(nominalRadius * 3.0, 1.0)
+        std::max(nominalRadius, 1.0)
     );
 
     for (int i = 0; i < nodeCount; ++i) {
@@ -701,7 +682,7 @@ void generateHierarchicalEdges(
             searchRadius >= diagonal) {
             break;
         }
-        searchRadius *= 1.8;
+        searchRadius *= 2.0;
     }
 
     addKruskalConnectivityEdges(
@@ -762,7 +743,7 @@ void generateHierarchicalEdges(
     std::vector<CandidateEdge> fillerCandidates = buildLocalCandidates(
         nodes,
         pointGrid,
-        std::min(searchRadius * 1.4, diagonal),
+        std::min(searchRadius, diagonal),
         usedEdges
     );
     sortCandidates(fillerCandidates);

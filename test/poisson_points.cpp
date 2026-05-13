@@ -17,9 +17,9 @@ struct Config {
     int levelCount = 5;
     int levelVolume = 50;
     double left = 0.0;
-    double right = 10000.0;
+    double right = 40000.0;
     double bottom = 0.0;
-    double top = 10000.0;
+    double top = 40000.0;
 };
 
 double parseDouble(const char *value, const std::string &option)
@@ -255,7 +255,7 @@ int main(int argc, char **argv)
                       << nearestDistance(nodes) << '\n';
         }
 
-        std::cout << "kind,name,x,y,address,level,from,to,length,volume,p1,p2,current_flow,edge_level\n";
+        std::cout << "kind,name,x,y,address,level,from,to,length,volume,p1,p2,edge_level\n";
         std::cout << std::fixed << std::setprecision(8);
         for (const Node *node : nodes) {
             std::cout << "node,"

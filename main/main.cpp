@@ -498,8 +498,8 @@ void showing(ui::Screen& screen, int mapWidthInt, int mapHeightInt, int nodeCoun
             isPathCalculated = false;
             
             // 更新标签显示
-            startLabel->SetContent("起点: 未选择");
-            endLabel->SetContent("终点: 未选择");
+            // startLabel->SetContent("起点: 未选择");
+            // endLabel->SetContent("终点: 未选择");
             
             // 显示原有按钮，隐藏重新计算按钮
             setOriginalButtonsVisible(true);

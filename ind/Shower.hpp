@@ -89,6 +89,25 @@ public:
     }
 
     void setViewportBounds(double left, double right, double top, double bottom) {
+        double boundWidth = right - left;
+        double boundHeight = top - bottom;
+        double screenWidth = window->getSize().x;
+        double screenHeight = window->getSize().y;
+        double screenAspect = screenWidth / screenHeight;
+        double boundAspect = boundWidth / boundHeight;
+        
+        if (boundAspect > screenAspect) {
+            double newHeight = boundWidth / screenAspect;
+            double centerY = (top + bottom) / 2.0;
+            top = centerY + newHeight / 2.0;
+            bottom = centerY - newHeight / 2.0;
+        } else if (boundAspect < screenAspect) {
+            double newWidth = boundHeight * screenAspect;
+            double centerX = (left + right) / 2.0;
+            left = centerX - newWidth / 2.0;
+            right = centerX + newWidth / 2.0;
+        }
+        
         viewport.left = left;
         viewport.right = right;
         viewport.top = top;
@@ -103,11 +122,6 @@ public:
             if (node == nullptr) continue;
             Tag::instance()[node]["near100"] = "1";
             highlightedNearestNodes.insert(node);
-        }
-        for (const Edge* edge : nearGraph.second) {
-            if (edge == nullptr) continue;
-            Tag::instance()[edge]["near100"] = "1";
-            highlightedNearestEdges.insert(edge);
         }
     }
     
@@ -333,10 +347,6 @@ private:
             Tag::instance()[node].erase("near100");
         }
         highlightedNearestNodes.clear();
-        for (const Edge* edge : highlightedNearestEdges) {
-            Tag::instance()[edge].erase("near100");
-        }
-        highlightedNearestEdges.clear();
     }
     
     // 绘制地图
@@ -538,7 +548,7 @@ private:
             int currentFlow = dataMaker->queryCurrentFlowInEdge(edge, k_for_time);
             double ratio = static_cast<double>(currentFlow) / edge->volume;
             std::ostringstream oss;
-            oss << std::fixed << std::setprecision(2) << ratio << "%";
+            oss << std::fixed << std::setprecision(2) << ratio;
             sf::Font font;
             static bool fontLoaded = false;
             static sf::Font staticFont;
